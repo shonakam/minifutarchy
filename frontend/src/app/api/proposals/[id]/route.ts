@@ -1,80 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
+import { mockProposalList } from '@/mock/proposals.mock';
 
-// 型定義
-interface ProposalResponse {
-  policy: {
-    id: number;
-    title: string;
-    description: string;
-  };
-  options: {
-    id: number;
-    name: string;
-    votes: number;
-  }[];
-}
-
-// モックデータ
-const mockPolicies: Record<number, ProposalResponse> = {
-  1: {
-    policy: {
-      id: 1,
-      title: '新しい図書館を建設するべきか？',
-      description: '図書館建設の是非を問う政策です。',
-    },
-    options: [
-      { id: 1, name: '賛成', votes: 120 },
-      { id: 2, name: '反対', votes: 80 },
-    ],
-  },
-  2: {
-    policy: {
-      id: 2,
-      title: 'オンライン授業を増やすべきか？',
-      description: 'オンライン授業の利便性について議論します。',
-    },
-    options: [
-      { id: 3, name: '増やす', votes: 200 },
-      { id: 4, name: '現状維持', votes: 50 },
-    ],
-  },
-};
-
-// ハンドラ関数
-export async function GET(req: NextRequest, context: { params: { id: string } }) {
-  const { id } = await context.params; // context.paramsを非同期に取得
-  const policyId = parseInt(id, 10);
-
-  if (isNaN(policyId)) {
+export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+  const id = params.id;
+  if (!id) {
     return NextResponse.json(
-      { error: { code: 400, message: 'Invalid policy ID' } },
+      { error: { code: 400, message: 'Missing proposal ID in request' } },
       { status: 400 }
     );
   }
 
-  if (mockPolicies[policyId]) {
-    return NextResponse.json(mockPolicies[policyId]);
+  const proposalId = parseInt(id, 10);
+
+  if (isNaN(proposalId)) {
+    return NextResponse.json(
+      { error: { code: 400, message: 'Invalid proposal ID' } },
+      { status: 400 }
+    );
+  }
+
+  const proposal = mockProposalList.find((p) => p.id === proposalId);
+
+  if (proposal) {
+    return NextResponse.json(proposal);
   } else {
     return NextResponse.json(
-      {
-        error: {
-          code: 404,
-          message: 'Policy not found',
-        },
-      },
+      { error: { code: 404, message: 'Proposal not found' } },
       { status: 404 }
     );
   }
-}
-
-export async function POST() {
-  return NextResponse.json(
-    {
-      error: {
-        code: 405,
-        message: 'Method Not Allowed',
-      },
-    },
-    { status: 405 }
-  );
 }

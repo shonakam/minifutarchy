@@ -1,32 +1,37 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Policy, Option } from '../types/vote';
+import { Proposal } from '@/types/proposal'
 
 const useFetchProposal = (id: string) => {
-  const [policy, setPolicy] = useState<Policy | null>(null);
-  const [options, setOptions] = useState<Option[]>([]);
+  const [proposal, setProposal] = useState<Proposal | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false); // ローディング状態
 
-  const fetchPolicy = useCallback(async () => {
+  const fetchProposal = useCallback(async () => {
     setError(null);
+    setLoading(true);
     try {
-      const response = await fetch(`/api/proposals/${id}`);
+	  alert(id);
+      const response = await fetch(`/api/proposals/${Number(id)}`);
       if (!response.ok) {
-        throw new Error('政策データの取得に失敗しました。');
+        const errorText = await response.text();
+        throw new Error(`データの取得に失敗しました: ${response.status} ${response.statusText}. ${errorText}`);
       }
-      const data = await response.json();
-      setPolicy(data.policy);
-      setOptions(data.options);
+
+      const data: Proposal = await response.json(); // Proposal型として型アサーション
+      setProposal(data);
     } catch (err) {
-      console.error('Error fetching policy:', err);
-      setError('政策データの取得に失敗しました。もう一度お試しください。');
+      console.error('Error fetching proposal:', err);
+      setError('データの取得に失敗しました。もう一度お試しください。');
+    } finally {
+      setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
-    fetchPolicy();
-  }, [fetchPolicy]);
+    fetchProposal();
+  }, [fetchProposal]);
 
-  return { policy, options, setOptions, error };
+  return { proposal, error, loading }; // Proposal型のデータを返す
 };
 
 export default useFetchProposal;

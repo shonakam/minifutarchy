@@ -9,8 +9,8 @@ export interface ProposalRegister {
 }
 
 export interface Proposal extends ProposalRegister {
-  id: string;
-  created_at?: string;
+  id: number;
+  created_at: string;
   support: number;
   oppose: number;
   result: ProposalResult;
