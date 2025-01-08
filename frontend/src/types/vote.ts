@@ -3,9 +3,9 @@ export interface Policy {
 	title: string;
 	description: string;
   }
-  
-  export interface Option {
+
+export interface Option {
 	id: number;
 	name: string;
 	votes: number;
-  }
+}

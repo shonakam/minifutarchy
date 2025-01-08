@@ -1,72 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { Proposal } from '@/types/proposal';
+import { NextResponse } from 'next/server';
+import { supabaseClient } from '@/client/supabase';
 
-// 型定義
-interface PolicyResponse {
-  policy: {
-    id: number;
-    title: string;
-    description: string;
-  };
-  options: {
-    id: number;
-    name: string;
-    votes: number;
-  }[];
-}
+export const revalidate = 60 * 60;
 
-// モックデータ
-const mockPolicies: Record<number, PolicyResponse> = {
-  1: {
-    policy: {
-      id: 1,
-      title: '新しい図書館を建設するべきか？',
-      description: '図書館建設の是非を問う政策です。',
-    },
-    options: [
-      { id: 1, name: '賛成', votes: 120 },
-      { id: 2, name: '反対', votes: 80 },
-    ],
-  },
-  2: {
-    policy: {
-      id: 2,
-      title: 'オンライン授業を増やすべきか？',
-      description: 'オンライン授業の利便性について議論します。',
-    },
-    options: [
-      { id: 3, name: '増やす', votes: 200 },
-      { id: 4, name: '現状維持', votes: 50 },
-    ],
-  },
-};
+async function read(): Promise<Proposal[]>{
+  const { data, error } = await supabaseClient.from('proposals').select('*');
 
-// ハンドラ関数
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const policyId = parseInt(params.id, 10);
-
-  if (mockPolicies[policyId]) {
-    return NextResponse.json(mockPolicies[policyId]);
-  } else {
-    return NextResponse.json(
-      {
-        error: {
-          code: 404,
-          message: 'Policy not found',
-        },
-      },
-      { status: 404 }
-    );
+  if (error) {
+    console.error('Supabase Error:', error.message);
+    throw new Error(`データベース取得に失敗しました: ${error.message}`);
   }
+
+  return data || [];
 }
 
-export async function POST() {
-  return NextResponse.json(
-    {
-      error: {
-        code: 405,
-        message: 'Method Not Allowed',
-      },
-    },
-    { status: 405 }
-  );
+export async function GET() {
+  try {
+    const proposals = await read();
+    return NextResponse.json(
+      { message: 'プロポーザル一覧を取得しました', data: proposals },
+      { status: 200 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+			{ error: `プロポーザルリスト取得に失敗しました: ${error}` },
+			{ status: 500 }
+		)
+  }
 }

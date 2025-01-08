@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // 型定義
-interface PolicyResponse {
+interface ProposalResponse {
   policy: {
     id: number;
     title: string;
@@ -15,7 +15,7 @@ interface PolicyResponse {
 }
 
 // モックデータ
-const mockPolicies: Record<number, PolicyResponse> = {
+const mockPolicies: Record<number, ProposalResponse> = {
   1: {
     policy: {
       id: 1,
@@ -41,8 +41,16 @@ const mockPolicies: Record<number, PolicyResponse> = {
 };
 
 // ハンドラ関数
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const policyId = parseInt(params.id, 10);
+export async function GET(req: NextRequest, context: { params: { id: string } }) {
+  const { id } = await context.params; // context.paramsを非同期に取得
+  const policyId = parseInt(id, 10);
+
+  if (isNaN(policyId)) {
+    return NextResponse.json(
+      { error: { code: 400, message: 'Invalid policy ID' } },
+      { status: 400 }
+    );
+  }
 
   if (mockPolicies[policyId]) {
     return NextResponse.json(mockPolicies[policyId]);

@@ -1,0 +1,8 @@
+[
+	"proposal:1",
+	{ "support": 10, "oppose": 5 },
+	"proposal:2",
+	{ "support": 7, "oppose": 8 },
+	"proposal:3",
+	{ "support": 255, "oppose": 42 }
+]
