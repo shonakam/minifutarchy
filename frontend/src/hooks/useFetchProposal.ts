@@ -10,14 +10,13 @@ const useFetchProposal = (id: string) => {
     setError(null);
     setLoading(true);
     try {
-	  alert(id);
       const response = await fetch(`/api/proposals/${Number(id)}`);
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`データの取得に失敗しました: ${response.status} ${response.statusText}. ${errorText}`);
       }
 
-      const data: Proposal = await response.json(); // Proposal型として型アサーション
+      const data: Proposal = await response.json();
       setProposal(data);
     } catch (err) {
       console.error('Error fetching proposal:', err);

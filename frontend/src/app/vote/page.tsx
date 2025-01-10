@@ -1,13 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation'; // App Router用のRouter
+import { useRouter } from 'next/navigation';
 import { Proposal } from '@/types/proposal';
 
 const ProposalsPage = () => {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter(); // App Routerのルーター
+  const router = useRouter();
 
   useEffect(() => {
     const fetchProposals = async () => {

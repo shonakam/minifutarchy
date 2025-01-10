@@ -1,17 +1,40 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import useFetchProposal from '../../../hooks/useFetchProposal';
+// import useSocket from '@/hooks/useSocket';
 import ErrorMessage from '../../../components/ErrorMessage';
 import VoteChart from '../../../components/Chart';
 
 const VotePage: React.FC = () => {
   const { id } = useParams();
   const { proposal, error, loading } = useFetchProposal(id as string);
+  // const socket = useSocket(id as string);
+
   const [selectedOption, setSelectedOption] = useState<'support' | 'oppose' | null>(null);
   const [voteError, setVoteError] = useState<string | null>(null);
   const [isVoting, setIsVoting] = useState<boolean>(false);
+  const [currentProposal, setCurrentProposal] = useState(proposal);
+
+  // useEffect(() => {
+  //   if (!socket) return;
+
+  //   socket.on('updateProposal', (updatedData: { support: string; oppose: string }) => {
+  //     setCurrentProposal((prevProposal) => {
+  //       if (!prevProposal) return null;
+  //       return {
+  //         ...prevProposal,
+  //         support: parseInt(updatedData.support, 10),
+  //         oppose: parseInt(updatedData.oppose, 10),
+  //       };
+  //     });
+  //   });
+
+  //   return () => {
+  //     socket.off('updateProposal');
+  //   };
+  // }, [socket, setCurrentProposal]);
 
   const handleVote = async () => {
     if (!selectedOption) {
