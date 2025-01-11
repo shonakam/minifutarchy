@@ -1,61 +1,97 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "hardhat/console.sol";
 
-contract Proposal is ERC1155 {
-    string public description; // Proposal の説明
-    uint256 public endTime;    // 投票終了時間
-    bool public finalized;     // 結果が確定しているか
 
-    uint256 public constant YES = 1; // Yes トークン ID
-    uint256 public constant NO = 2;  // No トークン ID
-    uint256 public yesVotes;         // Yes の投票数
-    uint256 public noVotes;          // No の投票数
+interface IProposal {
+    // トークン ID 定数
+    function LPT() external pure returns (uint256);
+    function YES() external pure returns (uint256);
+    function NO() external pure returns (uint256);
 
-    address public factory; // Factory アドレス
+    // 市場リザーブ情報
+    function getMarketReserves() external view returns (uint256 yesReserve, uint256 noReserve);
 
-    event Voted(address indexed voter, uint256 tokenId, uint256 amount);
-    event Finalized(bool result);
+    // Exchange 操作用
+    function mint(address to, uint256 id, uint256 amount) external;
+    function burn(address from, uint256 id, uint256 amount) external;
+    function updateMarketReserves(uint256 inputAmount, uint256 outputAmount, bool isYesToNo) external;
 
-    constructor() ERC1155("https://example.com/metadata/{id}.json") {
-        factory = msg.sender; // Factory を設定
+    // Collateral Token
+    function collateralToken() external view returns (address);
+    function getTotalLpt() external view returns (uint256);
+    function getTotalYes() external view returns (uint256);
+    function getTotalNo() external view returns (uint256);
+}
+
+contract Proposal is ERC1155Supply {
+    address public proposer;
+    string public description;
+    uint256 public duration;
+
+    address public factory;
+    address public exchange;
+    IERC20 public collateralToken;
+
+    bool private initialized;
+    uint256 public constant LPT = 0; // LP トークン
+    uint256 public constant YES = 1; // Yes トークン
+    uint256 public constant NO = 2;  // No トークン
+
+    mapping(uint256 => uint256) public marketReserves; // トークンごとのリザーブ量
+    modifier onlyExchange() {
+        require(msg.sender == exchange, "Not authorized");
+        _;
     }
 
-    // Proposal を初期化
-    function initialize(string memory _description, uint256 _duration) external {
-        require(msg.sender == factory, "Not factory");
-        require(endTime == 0, "Already initialized");
+    constructor() ERC1155("") {}
 
+    function initialize(
+        address _proposer,
+        string memory _description,
+        uint256 _duration,
+        address _exchange,
+        address _collateralToken
+    ) external {
+        require(!initialized, "Already initialized");
+        factory = msg.sender;
+        proposer = _proposer;
         description = _description;
-        endTime = block.timestamp + _duration;
+        duration = _duration;
+        exchange = _exchange;
+        collateralToken = IERC20(_collateralToken);
+        initialized = true;
     }
 
-    // 投票機能
-    function vote(uint256 tokenId, uint256 amount) external {
-        require(block.timestamp < endTime, "Voting has ended");
-        require(tokenId == YES || tokenId == NO, "Invalid tokenId");
+    function mint(address to, uint256 id, uint256 amount) external onlyExchange {
+        require(id == YES || id == NO || id == LPT, "Invalid token ID");
+        _mint(to, id, amount, "");
+    }
 
-        // トークンをミントして投票を記録
-        _mint(msg.sender, tokenId, amount, "");
+    function burn(address from, uint256 id, uint256 amount) external onlyExchange {
+        require(id == YES || id == NO || id == LPT, "Invalid token ID");
+        _burn(from, id, amount);
+    }
 
-        if (tokenId == YES) {
-            yesVotes += amount;
+    function updateMarketReserves(uint256 inputAmount, uint256 outputAmount, bool isYesToNo) external onlyExchange {
+        if (isYesToNo) {
+            marketReserves[YES] += inputAmount;
+            marketReserves[NO] -= outputAmount;
         } else {
-            noVotes += amount;
+            marketReserves[NO] += inputAmount;
+            marketReserves[YES] -= outputAmount;
         }
-
-        emit Voted(msg.sender, tokenId, amount);
     }
 
-    // 投票結果の確定
-    function finalize() external {
-        require(block.timestamp >= endTime, "Voting not ended");
-        require(!finalized, "Already finalized");
-
-        finalized = true;
-        bool result = yesVotes > noVotes;
-
-        emit Finalized(result);
+    function getMarketReserves() external view returns (uint256 yesReserve, uint256 noReserve) {
+        yesReserve = marketReserves[YES];
+        noReserve = marketReserves[NO];
     }
+
+    function getTotalLpt() external view returns (uint256) { return totalSupply(LPT); }
+    function getTotalYes() external view returns (uint256) { return totalSupply(YES); }
+    function getTotalNo() external view returns (uint256) { return totalSupply(NO); }
 }
