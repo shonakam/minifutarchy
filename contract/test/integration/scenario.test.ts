@@ -6,7 +6,7 @@ import {
   custom, http,
   keccak256, stringToBytes
   } from "viem";
-import { hardhat } from "viem/chains";
+import { hardhat, taraxa } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox-viem/network-helpers";
 
@@ -94,7 +94,7 @@ describe("Futarchy Integration Test with Viem", function () {
       eventName: "ProposalCreated",
       data: eventLog?.data,
       topics: eventLog?.topics || [],
-    }) as unknown as { args: ProposalCreatedEventArgs };;
+    }) as unknown as { args: ProposalCreatedEventArgs };
     // console.log("Decoded Event:", decodedEvent);
     expect(decodedEvent.args.proposalId).to.deep.equal(BigInt(0));
     expect(decodedEvent.args.proposal).to.deep.equal(await factory.read.getProposal([BigInt(0)]));
@@ -121,5 +121,59 @@ describe("Futarchy Integration Test with Viem", function () {
     expect(description).to.eq(setDescription);
     expect(duration).to.eq(setDuration);
     expect(exchangeAddress.toLowerCase()).to.eq(exchange.address);
+  });
+
+  it("2. ProposalInstance へ初期流動性提供", async () => {
+    const { publicClient, from, collateral, target, exchange, factory } = await loadFixture(deploy);
+    let txHash: `0x${string}`, receipt: TransactionReceipt
+  
+    /* <=== SETUP ===> */
+    const setDescription = "Test Proposal", setDuration = BigInt(7 * 24 * 60 * 60);
+    txHash = await factory.write.createProposal([setDescription, setDuration, collateral.address]);
+    receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+    expect(receipt.status).to.eq('success')
+    const eventSignature = "ProposalCreated(uint256,address,address)";
+    const eventHash = keccak256(stringToBytes(eventSignature));
+    const eventLog = receipt.logs.find((log) => log.topics[0] === eventHash);
+    type ProposalCreatedEventArgs = { proposal: string; collateralToken: string; proposalId: bigint;};
+    const decodedEvent = decodeEventLog({
+      abi: abiFactory.abi,
+      eventName: "ProposalCreated",
+      data: eventLog?.data,
+      topics: eventLog?.topics || [],
+    }) as unknown as { args: ProposalCreatedEventArgs };
+
+    txHash = await from.writeContract({
+      address: collateral.address,
+      abi: abiCollateralMock.abi,
+      functionName: "approve",
+      args: [decodedEvent.args.proposal as `0x${string}`, BigInt(4000)],
+    })
+    receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+    expect(receipt.status).to.eq('success')
+    const allowedAmount = await publicClient.readContract({
+      address: collateral.address as `0x${string}`,
+      abi: abiCollateralMock.abi, functionName: "allowance", args: [from.account.address, decodedEvent.args.proposal]
+    })
+    expect(allowedAmount).to.eq(BigInt(4000))
+    /* <=== START ===> */
+    // 流動性を提供
+    txHash = await from.writeContract({
+      address: decodedEvent.args.proposal as `0x${string}`,
+      abi: abiProposal.abi,
+      functionName: "initializeLiquidity",
+      args: [BigInt(1000),BigInt(1000)]
+    })
+    receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+    expect(receipt.status).to.eq('success')
+    
+    // 提供後のリザーブ量を検証
+    const reserves = await publicClient.readContract({
+      address: decodedEvent.args.proposal as `0x${string}`,
+      abi: abiProposal.abi,
+      functionName: "getMarketReserves",
+      args: [],
+    });
+    expect(reserves).to.deep.equal([BigInt(1000), BigInt(1000)]);
   });
 });

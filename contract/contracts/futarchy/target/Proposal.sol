@@ -37,6 +37,7 @@ contract Proposal is ERC1155Supply {
     IERC20 public collateralToken;
 
     bool private initialized;
+    bool public hasInitLiquidity;
     uint256 public constant LPT = 0; // LP トークン
     uint256 public constant YES = 1; // Yes トークン
     uint256 public constant NO = 2;  // No トークン
@@ -46,6 +47,8 @@ contract Proposal is ERC1155Supply {
         require(msg.sender == exchange, "Not authorized");
         _;
     }
+
+    event InitialLiquidityAdded(address indexed user, uint256 yesAmount, uint256 noAmount);
 
     constructor() ERC1155("") {}
 
@@ -64,6 +67,7 @@ contract Proposal is ERC1155Supply {
         exchange = _exchange;
         collateralToken = IERC20(_collateralToken);
         initialized = true;
+        hasInitLiquidity = false;
     }
 
     function mint(address to, uint256 id, uint256 amount) external onlyExchange {
@@ -74,6 +78,28 @@ contract Proposal is ERC1155Supply {
     function burn(address from, uint256 id, uint256 amount) external onlyExchange {
         require(id == YES || id == NO || id == LPT, "Invalid token ID");
         _burn(from, id, amount);
+    }
+
+    function initializeLiquidity(uint256 yesAmount, uint256 noAmount) external {
+        require(!hasInitLiquidity, "Liquidity already initialized");
+        require(
+            yesAmount > 0 && noAmount > 0 && yesAmount == noAmount,
+            "Invalid initial liquidity amounts"
+        );
+
+        require(
+            collateralToken.transferFrom(msg.sender, address(this), yesAmount + noAmount),
+            "Collateral transfer failed"
+        );
+
+        marketReserves[YES] = yesAmount;
+        marketReserves[NO] = noAmount;
+
+        uint256 lpAmount = yesAmount + noAmount; // 初期流動性として Yes + No
+        _mint(msg.sender, LPT, lpAmount, "");
+
+        hasInitLiquidity = true;
+        emit InitialLiquidityAdded(msg.sender, yesAmount, noAmount);
     }
 
     function updateMarketReserves(uint256 inputAmount, uint256 outputAmount, bool isYesToNo) external onlyExchange {
