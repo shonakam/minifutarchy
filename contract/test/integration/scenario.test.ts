@@ -40,6 +40,9 @@ import { writeContract } from "viem/_types/actions/wallet/writeContract";
  *    - リザーブ量が正しく減少し、ユーザーがトークンを受け取っていることを確認。
  */
 
+function toWei(input: number) { return input * 10**18 }
+function fromWei(input: number) { return input / 10**18 }
+
 describe("Futarchy Integration Test with Viem", function () {
 	const deploy = async () => {
     // <hardhat node>
@@ -51,7 +54,7 @@ describe("Futarchy Integration Test with Viem", function () {
     const publicClient = await hre.viem.getPublicClient()
     const [from, to] = await hre.viem.getWalletClients()
 
-    const collateral = await hre.viem.deployContract("CollateralMock", [BigInt(200000)]);
+    const collateral = await hre.viem.deployContract("CollateralMock", [BigInt(toWei(4050))]);
 		const target = await hre.viem.deployContract("Proposal", []);
 		const exchange = await hre.viem.deployContract("Exchange", []);
 		const factory = await hre.viem.deployContract("ProposalFactory", [target.address, exchange.address]);
@@ -124,7 +127,7 @@ describe("Futarchy Integration Test with Viem", function () {
   });
 
   it("2. ProposalInstance へ初期流動性提供", async () => {
-    const { publicClient, from, collateral, target, exchange, factory } = await loadFixture(deploy);
+    const { publicClient, from, collateral, factory } = await loadFixture(deploy);
     let txHash: `0x${string}`, receipt: TransactionReceipt
   
     /* <=== SETUP ===> */
@@ -176,4 +179,49 @@ describe("Futarchy Integration Test with Viem", function () {
     });
     expect(reserves).to.deep.equal([BigInt(1000), BigInt(1000)]);
   });
+
+  it ("3. ProposalInstance へ投票", async () => {
+    const { publicClient, from, collateral, factory, exchange } = await loadFixture(deploy);
+    let txHash: `0x${string}`, receipt: TransactionReceipt;
+
+    /* <=== SETUP ===> */
+    const setDescription = "Test Proposal", setDuration = BigInt(7 * 24 * 60 * 60);
+    await factory.write.createProposal([setDescription, setDuration, collateral.address]);
+    const proposalAddress = "0xd8058efe0198ae9dD7D563e1b4938Dcbc86A1F81"
+    await from.writeContract({
+      address: collateral.address, abi: abiCollateralMock.abi,
+      functionName: "approve", args: [proposalAddress, BigInt(toWei(4000))]
+    })
+    await from.writeContract({
+      address: proposalAddress, abi: abiProposal.abi,
+      functionName: "initializeLiquidity", args: [BigInt(toWei(2000)),BigInt(toWei(2000))]
+    })
+    
+    /* <=== START ===> */
+    await from.writeContract({
+      address: collateral.address, abi: abiCollateralMock.abi,
+      functionName: "approve", args: [exchange.address, BigInt(toWei(50))]
+    })
+    txHash = await from.writeContract({
+      address: exchange.address, abi: abiExchange.abi,
+      functionName: "vote", args: [proposalAddress, BigInt(toWei(50)), true], // Yes に 50 投票
+    });
+    receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+    expect(receipt.status).to.eq('success');
+
+    const reserves  = await publicClient.readContract({
+      address: proposalAddress, abi: abiProposal.abi,
+      functionName: "getMarketReserves", args: [],
+    }) as unknown as bigint[];
+    let scaledValue = BigInt(4000000) * BigInt(toWei(1)) / BigInt(2050);
+    expect(reserves).to.deep.equal([BigInt(toWei(2050)), scaledValue]);
+  })
+
+  it ("4. ProposalInstance でスワップ", async () => {
+    
+  })
+
+  // it ("5. ProposalInstance で流動性削除", async () => {
+    
+  // })
 });

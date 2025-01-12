@@ -80,6 +80,15 @@ contract Proposal is ERC1155Supply {
         _burn(from, id, amount);
     }
 
+    function sqrt(uint256 x) internal pure returns (uint256) {
+        uint256 z = (x + 1) / 2;
+        uint256 y = x;
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
+        return y;
+    }
     function initializeLiquidity(uint256 yesAmount, uint256 noAmount) external {
         require(!hasInitLiquidity, "Liquidity already initialized");
         require(
@@ -95,7 +104,9 @@ contract Proposal is ERC1155Supply {
         marketReserves[YES] = yesAmount;
         marketReserves[NO] = noAmount;
 
-        uint256 lpAmount = yesAmount + noAmount; // 初期流動性として Yes + No
+        // 幾何平均による初期LPトークンの計算: √(yesAmount * noAmount)
+        uint256 lpAmount = sqrt(yesAmount * noAmount);
+        require(lpAmount > 0, "Invalid LP token amount");
         _mint(msg.sender, LPT, lpAmount, "");
 
         hasInitLiquidity = true;
