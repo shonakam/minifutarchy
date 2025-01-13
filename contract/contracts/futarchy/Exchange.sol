@@ -29,7 +29,7 @@ contract Exchange {
     event LiquidityAdded(address indexed user, uint256 yesAmount, uint256 noAmount);
     event LiquidityRemoved(address indexed user, uint256 yesAmount, uint256 noAmount);
     event Merged(address indexed user, address indexed proposal, uint256 amount);
-    event Voted(address indexed voter, address proposal, uint256 amount, bool isYes);
+    event Voted(address indexed user, address indexed proposal, uint256 collateralAmount, bool isYes, uint256 mintedAmount, uint256 lockedAmount);
     event Swapped(address indexed user, uint256 inputAmount, uint256 outputAmount, bool isYesToNo);
 
     // 流動性を追加
@@ -75,7 +75,6 @@ contract Exchange {
 
         // Proposal のリザーブを更新
         proposalInstance.updateMarketReserves(yesAmount, noAmount, true);
-
         emit LiquidityRemoved(msg.sender, yesAmount, noAmount);
     }
 
@@ -85,16 +84,13 @@ contract Exchange {
         (uint256 yesReserve, uint256 noReserve) = proposal.getMarketReserves(); // 現在のReserveを取得
         require(yesReserve > 0 && noReserve > 0, "Invalid market reserves");
 
-        // YES トークンと NO トークンをリザーブ比率に基づき動的に分割
-        // 投票後のリザーブ計算 cpmm?
+        // YES トークンと NO トークンをリザーブ比率に基づき動的に分割, 投票後のリザーブ計算 cpmm
         uint256 k = yesReserve * noReserve;
         uint256 newYesReserve = isYes ? yesReserve + collateralAmount : yesReserve;
         uint256 newNoReserve = isYes ? k / newYesReserve : noReserve + collateralAmount;
-
         // 引き出し量と mint, lock される量の計算
         mintedAmount = isYes ? newYesReserve - yesReserve : newNoReserve - noReserve;
         lockedAmount = collateralAmount - mintedAmount;
-
         return (mintedAmount, lockedAmount);
     }
     // 投票機能
@@ -117,7 +113,8 @@ contract Exchange {
         proposalInstance.mint(address(this), lockedTokenId, lockedAmount);
 
         proposalInstance.updateMarketReserves(mintedAmount, lockedAmount, isYes);
-        emit Voted(msg.sender, proposal, collateralAmount, isYes);
+        proposalInstance.updateUserLocked(msg.sender, lockedTokenId, lockedAmount, true);
+        emit Voted(msg.sender, proposal, collateralAmount, isYes, mintedAmount, lockedAmount);
 
         // // 手数料の計算 一旦無視（0%）
         // uint256 fee = (collateralAmount * FEE_PERCENTAGE) / 100;
@@ -216,7 +213,4 @@ contract Exchange {
 
         return calculateCost(inputReserve, outputReserve, inputAmount);
     }
-
-    /* <=== UTILS ===> */ 
-    function validateAmount(uint256 amount) internal pure { require(amount > 0, "Invalid input amount"); }
 }

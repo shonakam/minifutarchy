@@ -142,8 +142,16 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
       }
     }
 
-    function uodateUserLocked(address user, uint256 lockedAmount) external onlyExchange {
+    function updateUserLocked(address user, uint256 id, uint256 amount, bool isAdd) external onlyExchange {
+      require(user != address(0), "Invalid user address");
+      require(id == YES || id == NO, "Invalid token ID");
 
+      if (isAdd) {
+        userLocked[user][id] += amount;
+      } else {
+        require(userLocked[user][id] >= amount, "Insufficient locked amount");
+        userLocked[user][id] -= amount;
+      }
     }
 
     function getMarketReserves() external view returns (uint256 yesReserve, uint256 noReserve) {
@@ -158,7 +166,9 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
     }
 
     function getUserLockedBalances(address user) external view returns (uint256 yesBalance, uint256 noBalance) {
-      
+      require(user != address(0), "Invalid user address");
+      yesBalance = userLocked[user][YES];
+      noBalance = userLocked[user][NO];
     }
   
     function getBalancesForUsers(address[] calldata users) external view returns (
