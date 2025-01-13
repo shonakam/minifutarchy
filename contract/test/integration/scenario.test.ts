@@ -45,12 +45,6 @@ function fromWei(input: number) { return input / 10**18 }
 
 describe("Futarchy Integration Test with Viem", function () {
 	const deploy = async () => {
-    // <hardhat node>
-    // const privateKey = "0x59c6995e998f97a5a004497ce31d0fb24534f26d4e3f9d5b9fbe45d3f1cdee";
-    // const account = privateKeyToAccount(privateKey);
-
-    // const publicClient = createPublicClient({chain: hardhat, transport: http()})
-    // const walletClient = createWalletClient({chain: hardhat, transport: http()})
     const publicClient = await hre.viem.getPublicClient()
     const [from, to] = await hre.viem.getWalletClients()
 
@@ -209,16 +203,74 @@ describe("Futarchy Integration Test with Viem", function () {
     receipt = await publicClient.getTransactionReceipt({ hash: txHash });
     expect(receipt.status).to.eq('success');
 
-    const reserves  = await publicClient.readContract({
+    let reserves  = await publicClient.readContract({
       address: proposalAddress, abi: abiProposal.abi,
       functionName: "getMarketReserves", args: [],
     }) as unknown as bigint[];
     let scaledValue = BigInt(4000000) * BigInt(toWei(1)) / BigInt(2050);
     expect(reserves).to.deep.equal([BigInt(toWei(2050)), scaledValue]);
+
+    //　期日前償還
+    scaledValue = BigInt(toWei(2000)) - BigInt(4000000) * BigInt(toWei(1)) / BigInt(2050);
+    reserves  = await publicClient.readContract({
+      address: proposalAddress, abi: abiProposal.abi,
+      functionName: "getUserBalances", args: [from.account.address],
+    }) as unknown as bigint[];
+    expect(reserves[1]).to.equal(scaledValue);
+    console.log(reserves)
+
+    txHash = await from.writeContract({
+      address: exchange.address, abi: abiExchange.abi,
+      functionName: "redeemBeforeResolution", args: [proposalAddress, scaledValue, true],
+    });
+    receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+    expect(receipt.status).to.eq('success');
+
+
+    // reserves  = await publicClient.readContract({
+    //   address: proposalAddress, abi: abiProposal.abi,
+    //   functionName: "getMarketReserves", args: [],
+    // }) as unknown as bigint[];
+    // expect(reserves).to.deep.equal([BigInt(toWei(2000)), BigInt(toWei(2000))]);
+    
   })
 
   it ("4. ProposalInstance でスワップ", async () => {
+    const { publicClient, from, collateral, factory, exchange } = await loadFixture(deploy);
+    let txHash: `0x${string}`, receipt: TransactionReceipt;
     
+    /* <=== SETUP ===> */
+    const setDescription = "Test Proposal", setDuration = BigInt(7 * 24 * 60 * 60);
+    await factory.write.createProposal([setDescription, setDuration, collateral.address]);
+    const proposalAddress = "0xd8058efe0198ae9dD7D563e1b4938Dcbc86A1F81"
+    await from.writeContract({
+      address: collateral.address, abi: abiCollateralMock.abi,
+      functionName: "approve", args: [proposalAddress, BigInt(toWei(5000))]
+    })
+    await from.writeContract({
+      address: proposalAddress, abi: abiProposal.abi,
+      functionName: "initializeLiquidity", args: [BigInt(toWei(2000)),BigInt(toWei(2000))]
+    })
+    await from.writeContract({
+      address: collateral.address, abi: abiCollateralMock.abi,
+      functionName: "approve", args: [exchange.address, BigInt(toWei(50))]
+    })
+    txHash = await from.writeContract({
+      address: exchange.address, abi: abiExchange.abi,
+      functionName: "vote", args: [proposalAddress, BigInt(toWei(50)), true], // Yes に 50 投票
+    });
+    receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+    expect(receipt.status).to.eq('success');
+
+    /* <=== START ===> */
+    let scaledValue = BigInt(toWei(2000)) - BigInt(4000000) * BigInt(toWei(1)) / BigInt(2050);
+    await from.writeContract({
+      address: exchange.address, abi: abiExchange.abi, functionName: "swap", 
+      args: [proposalAddress, scaledValue, true, toWei(1)]
+    })
+    receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+    expect(receipt.status).to.eq('success');
+
   })
 
   // it ("5. ProposalInstance で流動性削除", async () => {

@@ -3,6 +3,7 @@ pragma solidity ^0.8.18;
 
 import "./target/Proposal.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/interfaces/IERC1155.sol";
 
 contract Exchange {
     uint256 public constant DECIMALS = 10**18; // 固定小数点スケール
@@ -27,6 +28,7 @@ contract Exchange {
     // イベント定義
     event LiquidityAdded(address indexed user, uint256 yesAmount, uint256 noAmount);
     event LiquidityRemoved(address indexed user, uint256 yesAmount, uint256 noAmount);
+    event Merged(address indexed user, address indexed proposal, uint256 amount);
     event Voted(address indexed voter, address proposal, uint256 amount, bool isYes);
     event Swapped(address indexed user, uint256 inputAmount, uint256 outputAmount, bool isYesToNo);
 
@@ -77,38 +79,49 @@ contract Exchange {
         emit LiquidityRemoved(msg.sender, yesAmount, noAmount);
     }
 
+    function split(
+        Proposal proposal, uint256 collateralAmount, bool isYes
+    ) internal view returns (uint256 mintedAmount, uint256 lockedAmount) {
+        (uint256 yesReserve, uint256 noReserve) = proposal.getMarketReserves(); // 現在のReserveを取得
+        require(yesReserve > 0 && noReserve > 0, "Invalid market reserves");
+
+        // YES トークンと NO トークンをリザーブ比率に基づき動的に分割
+        // 投票後のリザーブ計算 cpmm?
+        uint256 k = yesReserve * noReserve;
+        uint256 newYesReserve = isYes ? yesReserve + collateralAmount : yesReserve;
+        uint256 newNoReserve = isYes ? k / newYesReserve : noReserve + collateralAmount;
+
+        // 引き出し量と mint, lock される量の計算
+        mintedAmount = isYes ? newYesReserve - yesReserve : newNoReserve - noReserve;
+        lockedAmount = collateralAmount - mintedAmount;
+
+        return (mintedAmount, lockedAmount);
+    }
     // 投票機能
     function vote(address proposal, uint256 collateralAmount, bool isYes) external {
-        Proposal proposalInstance = Proposal(proposal);
-
-        (uint256 yesReserve, uint256 noReserve) = proposalInstance.getMarketReserves();
-
-        uint256 inputReserve = isYes ? yesReserve : noReserve;
-        uint256 outputReserve = isYes ? noReserve : yesReserve;
-
         require(collateralAmount > 0, "Invalid input amount");
-
-        // 手数料の計算
-        uint256 fee = (collateralAmount * FEE_PERCENTAGE) / 100;
-        uint256 adjustedAmount = collateralAmount - fee;
-
-        // CPMM ロジックによる出力量の計算
-        uint256 outputAmount = calculateCost(inputReserve, outputReserve, adjustedAmount);
-
-        require(outputAmount > 0, "Insufficient liquidity");
+        Proposal proposalInstance = Proposal(proposal);
 
         // コラテラルトークンを転送
         IERC20 collateral = IERC20(proposalInstance.collateralToken());
-        require(collateral.transferFrom(msg.sender, address(proposal), collateralAmount), "Collateral transfer failed");
+        require(
+            collateral.transferFrom(msg.sender, address(proposal), collateralAmount),
+            "Collateral transfer failed"
+        );
 
-        // Proposal のリザーブを更新
-        proposalInstance.updateMarketReserves(adjustedAmount, outputAmount, isYes);
-
-        // YES/NO トークンをミント
+        (uint256 mintedAmount, uint256 lockedAmount) = split(proposalInstance, collateralAmount, isYes);
         uint256 mintedTokenId = isYes ? proposalInstance.YES() : proposalInstance.NO();
-        proposalInstance.mint(msg.sender, mintedTokenId, outputAmount);
+        uint256 lockedTokenId = isYes ? proposalInstance.NO() : proposalInstance.YES();
+    
+        proposalInstance.mint(msg.sender, mintedTokenId, mintedAmount);
+        proposalInstance.mint(address(this), lockedTokenId, lockedAmount);
 
-        emit Voted(msg.sender, proposal, adjustedAmount, isYes);
+        proposalInstance.updateMarketReserves(mintedAmount, lockedAmount, isYes);
+        emit Voted(msg.sender, proposal, collateralAmount, isYes);
+
+        // // 手数料の計算 一旦無視（0%）
+        // uint256 fee = (collateralAmount * FEE_PERCENTAGE) / 100;
+        // uint256 adjustedAmount = collateralAmount - fee;
     }
 
     // スワップ機能
@@ -132,16 +145,61 @@ contract Exchange {
 
         require(outputAmount >= minOutputAmount, "Slippage exceeded");
 
-        // 入力トークンをバーン
+        // トークンをバーン / ミント
         proposalInstance.burn(msg.sender, isYesToNo ? proposalInstance.YES() : proposalInstance.NO(), inputAmount);
-
-        // 出力トークンをミント
         proposalInstance.mint(msg.sender, isYesToNo ? proposalInstance.NO() : proposalInstance.YES(), outputAmount);
 
         // Proposal のリザーブを更新
         proposalInstance.updateMarketReserves(inputAmount, outputAmount, isYesToNo);
 
         emit Swapped(msg.sender, inputAmount, outputAmount, isYesToNo);
+    }
+
+    function redeemBeforeResolution(address proposal, uint256 amount, bool isYes) external {
+        Proposal proposalInstance = Proposal(proposal);
+        require(!proposalInstance.isClose(), "Market already resolved");
+
+        IERC20 collateral = IERC20(proposalInstance.collateralToken());
+        (uint256 yesReserve, uint256 noReserve) = proposalInstance.getMarketReserves();
+        require(yesReserve > 0 && noReserve > 0, "Invalid market reserves");
+
+        // 比率に基づく償還量計算
+        uint256 price = isYes
+            ? (noReserve * DECIMALS) / (yesReserve + noReserve)
+            : (yesReserve * DECIMALS) / (yesReserve + noReserve);
+        uint256 collateralAmount = (amount * price) / DECIMALS;
+
+        // トークン残高確認
+        (, uint256 yesBalance, uint256 noBalance) = proposalInstance.getUserBalances(msg.sender);
+        if (isYes) {
+            require(yesBalance >= amount, "Insufficient token balance");
+        } else {
+            require(noBalance >= amount, "Insufficient token balance");
+        }
+
+        uint256 outputAmount = (amount * price) / DECIMALS; 
+
+        proposalInstance.approveCollateral(collateralAmount);
+        collateral.transferFrom(proposal, msg.sender, collateralAmount);
+        proposalInstance.burn(msg.sender, isYes ? proposalInstance.YES() : proposalInstance.NO(), amount);
+        proposalInstance.updateMarketReserves(amount, outputAmount, isYes);
+    }
+
+    function redeemAfterResolution(address proposal, uint256 amount, bool isYes) external {
+        Proposal proposalInstance = Proposal(proposal);
+        require(proposalInstance.isClose(), "Market not resolved");
+        require(proposalInstance.result() == isYes, "Cannot redeem losing tokens");
+
+        IERC20 collateral = IERC20(proposalInstance.collateralToken());
+        
+        uint256 balance = proposalInstance.balanceOf(
+            msg.sender, isYes ? proposalInstance.YES() : proposalInstance.NO()
+        );
+        require(balance >= amount, "Insufficient token balance");
+
+        proposalInstance.burn(msg.sender, isYes ? proposalInstance.YES() : proposalInstance.NO(), amount);
+        proposalInstance.approveCollateral(amount);
+        collateral.transferFrom(proposal, msg.sender, amount);
     }
 
     // コスト計算結果を確認するための関数
@@ -158,4 +216,7 @@ contract Exchange {
 
         return calculateCost(inputReserve, outputReserve, inputAmount);
     }
+
+    /* <=== UTILS ===> */ 
+    function validateAmount(uint256 amount) internal pure { require(amount > 0, "Invalid input amount"); }
 }
