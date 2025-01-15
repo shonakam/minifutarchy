@@ -2,6 +2,7 @@
 pragma solidity ^0.8.18;
 
 import "./target/Proposal.sol";
+import "./interface/IProposal.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/interfaces/IERC1155.sol";
 import "hardhat/console.sol";
@@ -9,23 +10,6 @@ import "hardhat/console.sol";
 contract Exchange {
     uint256 public constant SCALE = 1e18; // 固定小数点スケール
     uint256 public constant FEE_PERCENTAGE = 0; // 1%の手数料
-
-    function getRate(uint256 numerator, uint256 denominator) public pure returns (uint256) {
-        return  (numerator * SCALE / denominator);
-    }
-
-    // コスト計算関数
-    function calculateCost(
-        uint256 inputReserve,
-        uint256 outputReserve,
-        uint256 inputAmount
-    ) public pure returns (uint256 outputAmount) {
-        require(inputAmount > 0, "Input amount must be greater than 0");
-        uint256 newInputReserve = inputReserve + inputAmount;
-        uint256 newOutputReserve = (inputReserve * outputReserve) / newInputReserve;
-        outputAmount = outputReserve - newOutputReserve;
-        return outputAmount;
-    }
 
     // イベント定義
     event LiquidityAdded(address indexed user, uint256 yesAmount, uint256 noAmount);
@@ -81,7 +65,7 @@ contract Exchange {
         emit LiquidityRemoved(msg.sender, yesAmount, noAmount);
     }
 
-    function split(
+    function _split(
         Proposal proposal, uint256 collateralAmount, bool isYes
     ) internal view returns (uint256 mintedAmount, uint256 burnedAmount) {
         (uint256 yesReserve, uint256 noReserve) = proposal.getMarketReserves(); // 現在のReserveを取得
@@ -121,7 +105,7 @@ contract Exchange {
             "Collateral transfer failed"
         );
 
-        (uint256 mintedAmount, uint256 burnedAmount) = split(proposalInstance, collateralAmount, isYes);
+        (uint256 mintedAmount, uint256 burnedAmount) = _split(proposalInstance, collateralAmount, isYes);
 
         uint256 mintedTokenId = isYes ? proposalInstance.YES() : proposalInstance.NO();
         uint256 burnedTokenId = isYes ? proposalInstance.NO() : proposalInstance.YES();
@@ -135,37 +119,6 @@ contract Exchange {
         // // 手数料の計算 一旦無視（0%）
         // uint256 fee = (collateralAmount * FEE_PERCENTAGE) / 100;
         // uint256 adjustedAmount = collateralAmount - fee;
-    }
-
-    // スワップ機能
-    function swap(
-        address proposal,
-        uint256 inputAmount,
-        bool isYesToNo,
-        uint256 minOutputAmount
-    ) external {
-        Proposal proposalInstance = Proposal(proposal);
-
-        (uint256 yesReserve, uint256 noReserve) = proposalInstance.getMarketReserves();
-
-        uint256 inputReserve = isYesToNo ? yesReserve : noReserve;
-        uint256 outputReserve = isYesToNo ? noReserve : yesReserve;
-
-        require(inputAmount > 0, "Invalid input amount");
-
-        // CPMM ロジックによる出力量の計算
-        uint256 outputAmount = calculateCost(inputReserve, outputReserve, inputAmount);
-
-        require(outputAmount >= minOutputAmount, "Slippage exceeded");
-
-        // トークンをバーン / ミント
-        proposalInstance.burn(msg.sender, isYesToNo ? proposalInstance.YES() : proposalInstance.NO(), inputAmount);
-        proposalInstance.mint(msg.sender, isYesToNo ? proposalInstance.NO() : proposalInstance.YES(), outputAmount);
-
-        // Proposal のリザーブを更新
-        proposalInstance.updateMarketReserves(inputAmount, outputAmount, isYesToNo);
-
-        emit Swapped(msg.sender, inputAmount, outputAmount, isYesToNo);
     }
 
     function _beforeCloseLogic(
@@ -234,17 +187,7 @@ contract Exchange {
         emit Redeemed(msg.sender, proposal, amount, collateralAmount, isYes);
     }
 
-    function getSwapOutput(
-        address proposal,
-        uint256 inputAmount,
-        bool isYesToNo
-    ) external view returns (uint256) {
-        Proposal proposalInstance = Proposal(proposal);
-        (uint256 yesReserve, uint256 noReserve) = proposalInstance.getMarketReserves();
-
-        uint256 inputReserve = isYesToNo ? yesReserve : noReserve;
-        uint256 outputReserve = isYesToNo ? noReserve : yesReserve;
-
-        return calculateCost(inputReserve, outputReserve, inputAmount);
+    function getRate(uint256 numerator, uint256 denominator) public pure returns (uint256) {
+        return  (numerator * SCALE / denominator);
     }
 }

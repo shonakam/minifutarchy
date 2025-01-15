@@ -6,28 +6,6 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
 
-
-interface IProposal {
-    // トークン ID 定数
-    function LPT() external pure returns (uint256);
-    function YES() external pure returns (uint256);
-    function NO() external pure returns (uint256);
-
-    // 市場リザーブ情報
-    function getMarketReserves() external view returns (uint256 yesReserve, uint256 noReserve);
-
-    // Exchange 操作用
-    function mint(address to, uint256 id, uint256 amount) external;
-    function burn(address from, uint256 id, uint256 amount) external;
-    function updateMarketReserves(uint256 inputAmount, uint256 outputAmount, bool isYesToNo) external;
-
-    // Collateral Token
-    function collateralToken() external view returns (address);
-    function getTotalLpt() external view returns (uint256);
-    function getTotalYes() external view returns (uint256);
-    function getTotalNo() external view returns (uint256);
-}
-
 contract Proposal is ERC1155Supply, IERC1155Receiver {
     address public proposer;
     string public description;
@@ -180,6 +158,22 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
 
     function approveCollateral(uint256 amount) external onlyExchange {
         collateralToken.approve(exchange, amount);
+    }
+
+    function getVotePressure() public view returns (int256) {
+        uint256 yesReserve = marketReserves[YES];
+        uint256 noReserve = marketReserves[NO];
+
+        require(yesReserve + noReserve > 0, "Total reserves must be greater than zero");
+        require(int256(yesReserve) >= 0, "YES reserve cannot be negative");
+        require(int256(noReserve) >= 0, "NO reserve cannot be negative");
+        require(yesReserve <= uint256(type(int256).max), "YES reserve exceeds int256 max value");
+        require(noReserve <= uint256(type(int256).max), "NO reserve exceeds int256 max value");
+
+        int256 yes = int256(yesReserve);
+        int256 no = int256(noReserve);
+        int256 votePressure = (yes - no) * 1e18 / (yes + no);
+        return votePressure;
     }
 
     function getTotalLpt() external view returns (uint256) { return totalSupply(LPT); }

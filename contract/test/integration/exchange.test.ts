@@ -62,7 +62,7 @@ describe("Exchange Integration Test", function () {
       address: proposalAddress, abi: abiProposal.abi,
       functionName: "getUserBalances", args: [x.account.address]
     }) as unknown as bigint[]
-    console.log("x: ", reserves);
+    // console.log("x: ", reserves);
 
     // reserves = await publicClient.readContract({
     //   address: proposalAddress, abi: abiProposal.abi,
@@ -92,7 +92,7 @@ describe("Exchange Integration Test", function () {
       address: proposalAddress, abi: abiProposal.abi,
       functionName: "getUserBalances", args: [y.account.address]
     }) as unknown as bigint[]
-    console.log("y: ", reserves);
+    // console.log("y: ", reserves);
 
     // reserves = await publicClient.readContract({
     //   address: proposalAddress, abi: abiProposal.abi,
@@ -122,19 +122,19 @@ describe("Exchange Integration Test", function () {
       address: proposalAddress, abi: abiProposal.abi,
       functionName: "getUserBalances", args: [z.account.address]
     }) as unknown as bigint[]
-    console.log("z: ", reserves);
+    // console.log("z: ", reserves);
 
     reserves = await publicClient.readContract({
       address: proposalAddress, abi: abiProposal.abi,
       functionName: "getMarketReserves", args: []
     }) as unknown as bigint[]
-    for (const v of reserves) console.log(fromWei(Number(v)))
+    // for (const v of reserves) console.log(fromWei(Number(v)))
 
     reserves = await publicClient.readContract({
       address: proposalAddress, abi: abiProposal.abi,
       functionName: "getMarketCollateralBalance", args: []
     }) as unknown as bigint[]
-    console.log(reserves)
+    // console.log(reserves)
   });
 
   it("2. 期日前償還機能の検証[YES -> redeem]", async () => {
@@ -161,13 +161,13 @@ describe("Exchange Integration Test", function () {
       address: proposalAddress, abi: abiProposal.abi,
       functionName: "getUserBalances", args: [x.account.address]
     }) as unknown as bigint[]
-    console.log("x: ", reserves);
+    // console.log("x: ", reserves);
 
     reserves = await publicClient.readContract({
       address: proposalAddress, abi: abiProposal.abi,
       functionName: "getMarketReserves", args: []
     }) as unknown as bigint[]
-    for (const v of reserves) console.log(fromWei(Number(v)))
+    // for (const v of reserves) console.log(fromWei(Number(v)))
   });
 
   it("3. 期日前償還機能の検証[NO -> redeem]", async () => {
@@ -194,12 +194,39 @@ describe("Exchange Integration Test", function () {
       address: proposalAddress, abi: abiProposal.abi,
       functionName: "getUserBalances", args: [x.account.address]
     }) as unknown as bigint[]
-    console.log("x: ", reserves);
+    // console.log("x: ", reserves);
 
     reserves = await publicClient.readContract({
       address: proposalAddress, abi: abiProposal.abi,
       functionName: "getMarketReserves", args: []
     }) as unknown as bigint[]
+    // for (const v of reserves) console.log(fromWei(Number(v)))
+  });
+
+  it("4. 投票圧力の検証", async () => {
+    const { publicClient, x, y, z, collateral, exchange, proposalAddress } = setupData;
+    let txHash: `0x${string}`, receipt: TransactionReceipt, reserves, votePressure
+
+    await x.writeContract({
+      address: collateral.address, abi: abiCollateralMock.abi,
+      functionName: "approve", args: [exchange.address, BigInt(toWei(200))],
+    });
+
+    await x.writeContract({
+      address: exchange.address, abi: abiExchange.abi,
+      functionName: "vote", args: [proposalAddress, BigInt(toWei(100)), true],
+    });
+    reserves = await publicClient.readContract({
+      address: proposalAddress, abi: abiProposal.abi,
+      functionName: "getMarketReserves", args: []
+    }) as unknown as bigint[]
     for (const v of reserves) console.log(fromWei(Number(v)))
+
+    votePressure = await publicClient.readContract({
+      address: proposalAddress, abi: abiProposal.abi,
+      functionName: "getVotePressure", args: []
+    }) as unknown as bigint
+    let votePressureNumber = Number(votePressure) / 1e18
+    console.log("vote pressure: ", votePressureNumber)
   });
 });
