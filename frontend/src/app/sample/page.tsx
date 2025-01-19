@@ -3,7 +3,6 @@
 import React, {useState, useEffect} from 'react';
 import Chart from '../../components/chart/ChartWithVotePressure';
 
-
 const VotePage: React.FC = () => {
 	const [yesVotes, setYesVotes] = useState(25500); // YESの初期値
 	const [noVotes, setNoVotes] = useState(22500); // NOの初期値
@@ -23,7 +22,7 @@ const VotePage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-        <Chart yes={yesVotes} no={noVotes} />
+        <Chart proposal={null} yes={yesVotes} no={noVotes} />
     </div>
   );
 };

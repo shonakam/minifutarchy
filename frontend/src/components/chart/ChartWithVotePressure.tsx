@@ -21,8 +21,9 @@ import { contracts } from "@/constants/address/hardhat"
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 interface ChartWithVotePressureProps {
-  yes: number;  // YESの投票数
-  no: number;   // NOの投票数
+  proposal: Proposal | null;
+  yes: number;
+  no: number;
 }
 
 declare global {
@@ -34,21 +35,25 @@ declare global {
   }
 }
 
-const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ yes, no }) => {
+const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ proposal, yes, no }) => {
   const [voteYes, setVoteYes] = useState(yes);
   const [voteNo, setVoteNo] = useState(no);
-  const [totalVotes, setTotalVotes] = useState(yes + no); // 投票総数
-  const [sliderValue, setSliderValue] = useState(0); // スライダーの値（担保トークンの amount）
-  const [sliderMax, setSliderMax] = useState(100); // スライダーの上限値
-  const [voteChoice, setVoteChoice] = useState<'yes' | 'no'>('yes'); // スイッチの選択値
+  const [totalVotes, setTotalVotes] = useState(yes + no);
+  const [sliderValue, setSliderValue] = useState(0);
+  const [sliderMax, setSliderMax] = useState(100);
+  const [voteChoice, setVoteChoice] = useState<'yes' | 'no'>('yes');
   const [redeemChoice, setRedeemChoice] = useState<'yes' | 'no'>('yes');
 
-  // 投票圧力を計算 (-1 ~ 1)
   const votePressure = totalVotes > 0 ? (voteYes - voteNo) / totalVotes : 0;
 
-  // 数直線上の幅を計算
-  const barWidthPercentage = Math.abs(votePressure) * 50; // 正負に関係なくバーの幅 (50% で最大)
-  const barStartPosition = votePressure >= 0 ? 50 : 50 - barWidthPercentage; // 中央を基準に計算
+  
+  const startTime = Number(proposal?.start) * 1000;
+  const duration = Number(proposal?.duration) * 1000;
+  const endTime = startTime + duration;
+
+
+  const barWidthPercentage = Math.abs(votePressure) * 50;
+  const barStartPosition = votePressure >= 0 ? 50 : 50 - barWidthPercentage;
 
   useEffect(() => {
     setVoteYes(yes);
@@ -136,10 +141,19 @@ const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ yes, no }
         {/* ProposalCard */}
         <div className="mt-6 mb-2">
           <ProposalCard
-            title="Proposal for New Voting System"
-            proposer="Alice Johnson"
-            duration="7 days"
-            description="This proposal aims to improve the current voting system by introducing new features and better scalability. The proposed changes include a dynamic slider mechanism and enhanced user feedback."
+            title={proposal?.title || "(NULL)"}
+            proposer={proposal?.submitter || "(NULL)"}
+            start={
+              isNaN(new Date(startTime).getTime())
+                ? "(NULL)"
+                : new Date(startTime).toLocaleString()
+            }
+            end={
+              isNaN(new Date(endTime).getTime())
+                ? "(NULL)"
+                : new Date(endTime).toLocaleString()
+            }
+            description={proposal?.description || "(NULL)"}
           />
         </div>
 

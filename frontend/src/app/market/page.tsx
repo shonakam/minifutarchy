@@ -5,7 +5,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import LoadingScreen from '@/components/Loading';
 
 const ProposalsPage = () => {
-  const [proposals, setProposals] = useState<any[]>([]);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,7 +13,7 @@ const ProposalsPage = () => {
     const fetchProposals = async () => {
       try {
         const network = 'hardhat';
-        const response = await fetch(`/api/proposals/list/${network}`, { method: 'GET' });
+        const response = await fetch(`/api/proposal/list/${network}`, { method: 'GET' });
 
         if (!response.ok)
           throw new Error(`Failed to fetch proposals: ${response.statusText}`);
