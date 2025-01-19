@@ -1,11 +1,11 @@
 'use client';
 
 import React, {useState, useEffect} from 'react';
-import Chart from './ChartWithVotePressure';
+import Chart from '../../components/chart/ChartWithVotePressure';
 
 
 const VotePage: React.FC = () => {
-	const [yesVotes, setYesVotes] = useState(45500); // YESの初期値
+	const [yesVotes, setYesVotes] = useState(25500); // YESの初期値
 	const [noVotes, setNoVotes] = useState(22500); // NOの初期値
   
 	// データを定期的に更新

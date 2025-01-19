@@ -1,11 +1,13 @@
-'use client';
-
-import React from 'react';
-
-const ErrorMessage: React.FC<{ message: string | null }> = ({ message }) => {
-  if (!message) return null;
-
-  return <div className="bg-red-100 text-red-800 p-2 rounded mb-4">{message}</div>;
-};
-
-export default ErrorMessage;
+interface ErrorMessageProps {
+	message: string;
+  }
+  
+  const ErrorMessage: React.FC<ErrorMessageProps> = ({ message }) => {
+	return (
+	  <div className="flex items-center justify-center min-h-screen bg-gray-900">
+		<p className="text-red-500 text-center">{message}</p>
+	  </div>
+	);
+  };
+  
+  export default ErrorMessage;

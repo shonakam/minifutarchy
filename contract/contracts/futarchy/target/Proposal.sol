@@ -7,8 +7,10 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
 
 contract Proposal is ERC1155Supply, IERC1155Receiver {
-    address public proposer;
+    address public submitter;
+    string public title;
     string public description;
+    uint256 public start;
     uint256 public duration;
 
     address public factory;
@@ -19,12 +21,12 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
     bool public hasInitLiquidity;
     bool public isClose = false;
     bool public result = false;
-    uint256 public constant LPT = 0; // LP トークン
-    uint256 public constant YES = 1; // Yes トークン
-    uint256 public constant NO = 2;  // No トークン
+    uint256 public constant LPT = 0;
+    uint256 public constant YES = 1;
+    uint256 public constant NO = 2;
 
-    mapping(uint256 => uint256) public marketReserves; // トークンごとのリザーブ量
-    mapping(address => mapping(uint256 => uint256)) public userVoted;  // ユーザー別トークンごとのvote量
+    mapping(uint256 => uint256) public marketReserves;
+    mapping(address => mapping(uint256 => uint256)) public userVoted;
 
     modifier onlyExchange() {
         require(msg.sender == exchange, "Not authorized");
@@ -52,16 +54,20 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
     }
 
     function initialize(
-        address _proposer,
+        address _submitter,
+        string memory _title,
         string memory _description,
+        uint256 _start,
         uint256 _duration,
         address _exchange,
         address _collateralToken
     ) external {
         require(!initialized, "Already initialized");
         factory = msg.sender;
-        proposer = _proposer;
+        submitter = _submitter;
+        title = _title;
         description = _description;
+        start = _start;
         duration = _duration;
         exchange = _exchange;
         collateralToken = IERC20(_collateralToken);
