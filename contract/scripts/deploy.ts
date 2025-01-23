@@ -6,7 +6,7 @@ export function toWei(input: number): bigint {
 
 async function main() {
   // コントラクトのデプロイ
-  const collateral = await hre.viem.deployContract("CollateralMock", [toWei(5000000)]);
+  const collateral = await hre.viem.deployContract("CollateralMock", [toWei(50000000)]);
   console.log("CollateralMock deployed to:	", collateral.address);
 
   const target = await hre.viem.deployContract("Proposal", []);

@@ -173,6 +173,10 @@ contract Exchange {
 
         proposalInstance.burn(msg.sender, isYes ? proposalInstance.YES() : proposalInstance.NO(), amount);
         proposalInstance.approveCollateral(collateralAmount);
+        // require(
+        //     collateral.allowance(msg.sender, address(proposal)) >= collateralAmount,
+        //     "Insufficient allowance"
+        // );
         require(collateral.transferFrom(
             address(proposal), msg.sender, collateralAmount), "Collateral transfer failed"
         );

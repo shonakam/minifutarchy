@@ -35,6 +35,9 @@ contract-deploy: ## スマートコントラクトをデプロイ
 contract-interact: ## スマートコントラクトの操作
 	cd $(CONTRACT_DIR) && $(HARDHAT) run scripts/interact.ts --network $(CONTRACT_NETWORK)
 
+contract-simulation: ## スマートコントラクトのシミュレーション
+	cd $(CONTRACT_DIR) && $(HARDHAT) run scripts/simulation.ts --network $(CONTRACT_NETWORK)
+
 contract-test: ## スマートコントラクトのテストを実行
 	cd $(CONTRACT_DIR) && $(HARDHAT) test
 

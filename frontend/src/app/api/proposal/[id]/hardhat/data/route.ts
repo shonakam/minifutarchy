@@ -3,21 +3,44 @@ import ProposalABI from
   '/Users/cyanea/Documents/builds/minifutarchy/contract/artifacts/contracts/futarchy/target/Proposal.sol/Proposal.json';
 import { ethers } from 'ethers';
 
+type Response = [string, string, string, bigint, bigint, string];
+
+interface Proposal {
+	id: number;
+	submitter: `0x${string}`;
+	proposalAddress: `0x${string}`;
+	title: string;
+	description: string;
+	start: string;
+	duration: string;
+	collateralAddress: `0x${string}`;
+  }
+  
+
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }>}) {
   try {
-    const address = (await params).id;
+    const address = (await params).id
     const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');
     const contract = new ethers.Contract(address, ProposalABI.abi, provider);
 
-    const response: [bigint, bigint] = await contract.getMarketReserves();
-    let votes = [];
-    votes[0] = response[0].toString();
-    votes[1] = response[1].toString();
+    const [submitter, title, description, start, duration, collateralAddress]: [
+      string, string, string, bigint, bigint, string
+    ] = await contract.getProposalData();
 
-    console.log(votes)
+    const data: Proposal = {
+      id: 0,
+      proposalAddress: address as `0x${string}`,
+      submitter: submitter as `0x${string}`,
+      title,
+      description,
+      start: start.toString(),
+      duration: duration.toString(),
+      collateralAddress: collateralAddress as `0x${string}`,
+    };
+
     provider.destroy();
     return NextResponse.json(
-      { message: 'プロポーザルの状態を取得しました', data: votes },
+      { message: 'プロポーザルの状態を取得しました', data: data },
       { status: 200 }
     );
   } catch {

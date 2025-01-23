@@ -15,7 +15,11 @@ import ProposalCard from './ProposalCard';
 
 import { ethers } from 'ethers';
 import proposalFactory from "@/constants/abis/factory/ProposalFactory.sol/ProposalFactory.json"
-import { contracts } from "@/constants/address/hardhat"
+import ProposalABI from '@/../../contract/artifacts/contracts/futarchy/target/Proposal.sol/Proposal.json';
+import ExchangeABI from 
+  '@/../../contract/artifacts/contracts/futarchy/Exchange.sol/Exchange.json';
+import CollateralABI from 
+  '@/../../contract/artifacts/contracts/futarchy/CollateralMock.sol/CollateralMock.json';
 
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
@@ -38,19 +42,18 @@ declare global {
 const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ proposal, yes, no }) => {
   const [voteYes, setVoteYes] = useState(yes);
   const [voteNo, setVoteNo] = useState(no);
+  const [userBalance, setUserBalance] = useState([0, 0 ,0])
   const [totalVotes, setTotalVotes] = useState(yes + no);
   const [sliderValue, setSliderValue] = useState(0);
   const [sliderMax, setSliderMax] = useState(100);
-  const [voteChoice, setVoteChoice] = useState<'yes' | 'no'>('yes');
-  const [redeemChoice, setRedeemChoice] = useState<'yes' | 'no'>('yes');
+  const [position, setPosition] = useState<'yes' | 'no'>('yes');
+  // const [type, setType] = useState<'vote' | 'redeem'>('vote');
 
   const votePressure = totalVotes > 0 ? (voteYes - voteNo) / totalVotes : 0;
 
-  
   const startTime = Number(proposal?.start) * 1000;
   const duration = Number(proposal?.duration) * 1000;
   const endTime = startTime + duration;
-
 
   const barWidthPercentage = Math.abs(votePressure) * 50;
   const barStartPosition = votePressure >= 0 ? 50 : 50 - barWidthPercentage;
@@ -59,6 +62,19 @@ const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ proposal,
     setVoteYes(yes);
     setVoteNo(no);
     setTotalVotes(yes + no);
+    try {
+      async function fetchBalance() {
+        if (!proposal?.proposalAddress) return
+        const provider = new ethers.BrowserProvider(window.ethereum as ethers.Eip1193Provider);
+        console.log(await provider.getSigner())
+        const taraget = new ethers.Contract(proposal?.proposalAddress!, ProposalABI.abi, provider);
+        const response = await taraget.getUserBalances(await provider.getSigner());
+        setUserBalance([
+          Number(response[0]), Number(response[1]), Number(response[2])
+        ])
+      }
+      fetchBalance();
+    } catch {}
   }, [yes, no]);
 
   // 棒グラフのデータ
@@ -92,45 +108,52 @@ const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ proposal,
   };
 
   const handleMaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newMax = Math.max(1, parseInt(e.target.value) || 1); // 最小値は1
+    const newMax = Math.max(1, parseInt(e.target.value) || 1);
     setSliderMax(newMax);
-    setSliderValue(0); // 上限を変更したらスライダーをリセット
+    setSliderValue(0);
   };
 
-  const handleVoteRequest = async () => {
-    console.log('Vote request sent:', { voteChoice, amount: sliderValue, });
-    
+  const handleOrder = async (type: 'vote' | 'redeem') => {
+    console.log('Vote request sent:', { type, position, amount: ethers.toBigInt(sliderValue), });
+    console.log()
     try {
       const provider = new ethers.BrowserProvider(window.ethereum as ethers.Eip1193Provider);
       const signer = await provider.getSigner();
-      const contract = new ethers.Contract(
-        contracts.factory,
-        proposalFactory.abi,
-        signer
+      const collateral = new ethers.Contract(
+        "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+        CollateralABI.abi, signer
+      );
+      const exchange = new ethers.Contract(
+        "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+        ExchangeABI.abi, signer
       );
 
-      const tx = await contract.createProposal(
-        "TEST PROPOSAL!",
-        BigInt(7 * 24 * 60 * 60),
-        contracts.collateral,
-      );
+      const nonce = await provider.getTransactionCount(signer.address);
+      let tx;
+      const pos = position == 'yes' ? true : false;
+      if (type == 'vote') {
+        tx = await collateral.approve(
+          "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0", BigInt(sliderValue),
+          {gasLimit: ethers.toBigInt(500000), nonce: nonce}
+        );
+        await tx.wait();
+        tx = await exchange.vote(
+          proposal?.proposalAddress, BigInt(sliderValue), pos,
+          {gasLimit: ethers.toBigInt(500000), nonce: nonce+1}
+        );
+      } else if(type == 'redeem') {
+        tx = await exchange.redeem(
+          proposal?.proposalAddress, BigInt(sliderValue), pos,
+          {gasLimit: ethers.toBigInt(500000), nonce: nonce}
+        );
+      }
       const receipt = await tx.wait();
-  
       console.log("Transaction confirmed:", receipt);
-      alert(`Vote submitted:\nChoice: ${voteChoice}\nAmount: ${sliderValue}`);
+      alert(`${type} submitted:\nChoice: ${position}\nAmount: ${sliderValue}`);
     } catch (e) {
-      alert(e)
+      console.log("Err:", e);
+      alert("ERROR: This transaction reverted.")
     }
-
-    alert(`Vote submitted:\nChoice: ${voteChoice}\nAmount: ${sliderValue}`);
-  };
-
-  const handleRedeemRequest = () => {
-    console.log('Vote request sent:', {
-      redeemChoice,
-      amount: sliderValue,
-    });
-    alert(`Vote submitted:\nChoice: ${voteChoice}\nAmount: ${sliderValue}`);
   };
 
   return (
@@ -143,6 +166,7 @@ const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ proposal,
           <ProposalCard
             title={proposal?.title || "(NULL)"}
             proposer={proposal?.submitter || "(NULL)"}
+            collateral={proposal?.collateralAddress || "(NULL)"}
             start={
               isNaN(new Date(startTime).getTime())
                 ? "(NULL)"
@@ -157,8 +181,23 @@ const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ proposal,
           />
         </div>
 
-        <div className="mb-6 max-w-md mx-auto">
+        <div className="mb-6 max-w-md mx-auto flex justify-center items-center">
           <Bar data={data} options={optionsConfig} />
+          <div className="mt-4">
+            <p className="text-sm text-gray-400">Your Balances:</p>
+            <div className="flex justify-between">
+            <span className="text-sm text-yellow-400">LP:</span>
+            <span className="text-sm text-yellow-400">{userBalance[0] || 0}</span>
+            </div>
+            <div className="flex justify-between">
+            <span className="text-sm text-green-400">YES:</span>
+            <span className="text-sm text-green-400">{userBalance[1] || 0}</span>
+            </div>
+            <div className="flex justify-between">
+            <span className="text-sm text-red-400">NO:</span>
+            <span className="text-sm text-red-400">{userBalance[2] || 0}</span>
+            </div>
+          </div>
         </div>
 
         {/* 数直線メーター */}
@@ -220,13 +259,13 @@ const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ proposal,
               type="radio"
               name="voteChoice"
               value="yes"
-              checked={voteChoice === 'yes'}
-              onChange={() => setVoteChoice('yes')}
+              checked={position === 'yes'}
+              onChange={() => setPosition('yes')}
               className="hidden"
             />
             <span
               className={`cursor-pointer flex items-center justify-center px-4 py-2 rounded w-24 h-10 ${
-                voteChoice === 'yes' ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400'
+                position === 'yes' ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400'
               }`}
             >
               YES
@@ -237,13 +276,13 @@ const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ proposal,
               type="radio"
               name="voteChoice"
               value="no"
-              checked={voteChoice === 'no'}
-              onChange={() => setVoteChoice('no')}
+              checked={position === 'no'}
+              onChange={() => setPosition('no')}
               className="hidden"
             />
             <span
               className={`cursor-pointer flex items-center justify-center px-4 py-2 rounded w-24 h-10 ${
-                voteChoice === 'no' ? 'bg-red-500 text-white' : 'bg-gray-700 text-gray-400'
+                position === 'no' ? 'bg-red-500 text-white' : 'bg-gray-700 text-gray-400'
               }`}
             >
               NO
@@ -254,13 +293,13 @@ const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ proposal,
         {/* Vote & Redeem ボタン */}
         <div className="flex flex-col justify-center mt-6 gap-x-4 gap-y-1">
           <button
-            onClick={handleVoteRequest}
+            onClick={() => handleOrder('vote')}
             className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-1 text-sm rounded font-bold"
           >
             VOTE
           </button>
           <button
-            onClick={handleRedeemRequest}
+            onClick={() => handleOrder('redeem')}
             className="bg-gray-500 hover:bg-orange-400 text-white px-6 py-1 text-sm rounded font-bold"
           >
             REDEEM

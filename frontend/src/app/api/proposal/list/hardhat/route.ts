@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import ProposalFactoryABI from 
   '/Users/cyanea/Documents/builds/minifutarchy/contract/artifacts/contracts/futarchy/factory/ProposalFactory.sol/ProposalFactory.json';
-import { contracts } from '@/constants/address/hardhat'; 
 import { ethers } from 'ethers';
 
 type Response = [string, string, string, string, bigint, bigint, string];
@@ -35,6 +34,7 @@ export async function GET() {
       collateralAddress: proposal[6] as `0x${string}`,
     }))
 
+    provider.destroy();
     return NextResponse.json(
       { message: 'プロポーザル一覧を取得しました', data: proposalsFormat },
       { status: 200 }

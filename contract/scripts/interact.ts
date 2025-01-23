@@ -1,3 +1,4 @@
+import * as fs from "fs/promises";
 import hre from "hardhat";
 import { TransactionReceipt, decodeEventLog, keccak256, stringToBytes } from "viem";
 import abiFactory from "../artifacts/contracts/futarchy/factory/ProposalFactory.sol/ProposalFactory.json";
@@ -12,7 +13,6 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-
 async function main() {
   let txHash: `0x${string}`, receipt: TransactionReceipt, reserves
   const accounts = await hre.viem.getWalletClients()
@@ -22,6 +22,14 @@ async function main() {
   type ProposalCreatedEventArgs = { proposal: `0x${string}`; collateralToken: string; proposalId: bigint;};
   const eventSignature = "ProposalCreated(uint256,address,address)";
   const eventHash = keccak256(stringToBytes(eventSignature));
+  const filePath = "./scripts/address.txt";
+  
+  try {
+    await fs.access(filePath);
+    await fs.rm(filePath);
+  } catch { 
+    console.log(`${filePath} は存在しません。`)
+  }
 
   for (let i = 0; i < 100; i++) {
     const title: string = `This is sample title[${i}]`
@@ -66,7 +74,9 @@ async function main() {
       data: eventLog?.data,
       topics: eventLog?.topics || [],
     }) as unknown as { args: ProposalCreatedEventArgs };
+
     const cloneAddress = decodedEvent.args.proposal;
+    fs.appendFile(filePath, `${cloneAddress}\n`, "utf-8");
 
     txHash = await accounts[0].writeContract({
       address: collateral, abi: abiCollateral.abi,

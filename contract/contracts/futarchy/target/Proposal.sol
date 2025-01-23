@@ -182,6 +182,18 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
         return votePressure;
     }
 
+    function getProposalData() external view returns (
+        address, string memory, string memory, uint256, uint256, address
+    ) {
+        return (
+            submitter,
+            title,
+            description,
+            start,
+            duration,
+            address(collateralToken)
+        );
+    }
     function getTotalLpt() external view returns (uint256) { return totalSupply(LPT); }
     function getTotalYes() external view returns (uint256) { return totalSupply(YES); }
     function getTotalNo() external view returns (uint256) { return totalSupply(NO); }
