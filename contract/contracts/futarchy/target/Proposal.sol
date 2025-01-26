@@ -25,11 +25,17 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
     uint256 public constant YES = 1;
     uint256 public constant NO = 2;
 
+    mapping(address => bool) public whitelist;
     mapping(uint256 => uint256) public marketReserves;
     mapping(address => mapping(uint256 => uint256)) public userVoted;
 
     modifier onlyExchange() {
         require(msg.sender == exchange, "Not authorized");
+        _;
+    }
+
+    modifier onlyWhitelisted() {
+        require(msg.sender == submitter || whitelist[msg.sender], "Not authorized");
         _;
     }
 
@@ -53,6 +59,16 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
         return this.onERC1155BatchReceived.selector; 
     }
 
+    function addToWhitelist(address _address) external {
+        require(msg.sender == submitter, "Only admin can add to whitelist");
+        whitelist[_address] = true;
+    }
+
+    function removeFromWhitelist(address _address) external {
+        require(msg.sender == submitter, "Only admin can remove from whitelist");
+        whitelist[_address] = false;
+    }
+
     function initialize(
         address _submitter,
         string memory _title,
@@ -73,6 +89,14 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
         collateralToken = IERC20(_collateralToken);
         initialized = true;
         hasInitLiquidity = false;
+    }
+
+    function setResult(bool _result) external onlyWhitelisted() {
+        require(block.timestamp >= start + duration, "Voting period is not over yet");
+        require(!isClose, "Proposal is already closed");
+
+        result = _result;
+        isClose = true;
     }
 
     function mint(address to, uint256 id, uint256 amount) external onlyExchange {

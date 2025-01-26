@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import ProposalABI from 
-  '/Users/cyanea/Documents/builds/minifutarchy/contract/artifacts/contracts/futarchy/target/Proposal.sol/Proposal.json';
+  '../../../../../../../../contract/artifacts/contracts/futarchy/target/Proposal.sol/Proposal.json';
 import { ethers } from 'ethers';
 
 type Response = [string, string, string, bigint, bigint, string];

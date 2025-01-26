@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ExchangeABI from 
-  '/Users/cyanea/Documents/builds/minifutarchy/contract/artifacts/contracts/futarchy/Exchange.sol/Exchange.json';
+  '../../../../../../contract/artifacts/contracts/futarchy/Exchange.sol/Exchange.json';
 import { ethers } from 'ethers';
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
