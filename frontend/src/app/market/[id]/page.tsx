@@ -53,7 +53,7 @@ const MarketById: React.FC = () => {
   if (error) return <ErrorMessage message={error}/>
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex justify-center">
         <Chart proposal={proposal} yes={votes[0]} no={votes[1]} />
     </div>
   );

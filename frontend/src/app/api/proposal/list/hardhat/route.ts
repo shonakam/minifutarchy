@@ -3,7 +3,7 @@ import ProposalFactoryABI from
   '../../../../../../../contract/artifacts/contracts/futarchy/factory/ProposalFactory.sol/ProposalFactory.json';
 import { ethers } from 'ethers';
 
-type Response = [string, string, string, string, bigint, bigint, string];
+type Response = [string, string, string, string, string, bigint, bigint, string];
 
 export async function GET() {
   try {
@@ -29,9 +29,10 @@ export async function GET() {
       proposalAddress: proposal[1] as `0x${string}`,
       title: proposal[2],
       description: proposal[3],
-      start: proposal[4].toString(),
-      duration: proposal[5].toString(),
-      collateralAddress: proposal[6] as `0x${string}`,
+      threshold: proposal[4],
+      start: proposal[5].toString(),
+      duration: proposal[6].toString(),
+      collateralAddress: proposal[7] as `0x${string}`,
     }))
 
     provider.destroy();

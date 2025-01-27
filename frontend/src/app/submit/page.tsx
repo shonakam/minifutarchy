@@ -1,68 +1,81 @@
 'use client';
 
 import { useState } from 'react';
+import { sendTx } from '@/utils/sendTx.util';
+import DurationAdjuster from '@/components/DurationAdjuster';
+import Factory from '@/../../contract/artifacts/contracts/futarchy/factory/ProposalFactory.sol/ProposalFactory.json'
+import Collateral from '@/../../contract/artifacts/contracts/futarchy/CollateralMock.sol/CollateralMock.json'
+import Proposal from '@/../../contract/artifacts/contracts/futarchy/target/Proposal.sol/Proposal.json'
+import { getNonce } from '@/utils/getNonce.util';
 
 export default function ProposingPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [tags, setTags] = useState('');
+  const [duration, setDuration] = useState<number>(0);
+  const [threshold, setThreshold] = useState('');
+  const [collateral, setCollateral] = useState<`0x${string}`>('0x');
+  const [initLquidity, setInitLquidity] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
+  function isValidEthereumAddress(collateral: `0x${string}` | undefined) {
+    if (!collateral) return false;
+    return /^0x[a-fA-F0-9]{40}$/.test(collateral);
+  }
+
+  const handleDurationChange = (newDuration: number) => {
+    setDuration(newDuration);
+  };
+
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isValidEthereumAddress(collateral)) 
+      return (alert("Invalid Collateral Address."))
+    if (duration < 1) 
+      return (alert("Invalid Duration."))
+    if (initLquidity! < 5000) 
+      return (alert("Invalid Initial Liquidity Value. Need over 5000"))
 
-    // if (!title || !description) {
-    //   alert('タイトルと説明を入力してください。');
-    //   return;
-    // }
-
-    setLoading(true);
+    const formData = [
+      title, description, threshold, BigInt(duration), collateral
+    ];
 
     try {
-      const response = await fetch('/api/proposals/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title,
-          description,
-          tags: tags.split(',').map((tag) => tag.trim()),
-          author_id: 'dummy-author-id',
-        }),
-      });
+      setLoading(true)
+      let nonce = await getNonce();
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || '提案の作成に失敗しました。');
-      }
+      const factory: `0x${string}` = "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9"
+      const { events: createEvent } = await sendTx(
+        factory, Factory.abi, "createProposal", formData, nonce++, BigInt(1000000)
+      );
+      const proposal = createEvent[0].args[1]
 
-      alert('提案が作成されました！');
-      setTitle('');
-      setDescription('');
-      setTags('');
-    } catch (error: any) {
-      console.error('Error submitting proposal:', error.message);
-      alert(error.message || '提案の作成中にエラーが発生しました。');
-    } finally {
-      setLoading(false);
+      await sendTx(collateral, Collateral.abi, "approve", [proposal, BigInt(initLquidity!)], nonce++);
+      await sendTx(proposal, Proposal.abi, "initializeLiquidity", [BigInt(initLquidity!)], nonce++);
+      
+      alert("submitted!")
+      setLoading(false)
+    } catch (e) {
+      alert(`An error occurred: ${e}`);
+      setLoading(false)
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
-      <div className="max-w-2xl w-full bg-white shadow-lg rounded-lg p-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-          新しい提案を作成する
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+      <div className="max-w-2xl w-full bg-gray-800 shadow-lg rounded-lg p-8">
+        <h1 className="text-3xl font-bold text-white mb-6 text-center">
+          Submit a Market
         </h1>
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* タイトル入力 */}
           <div>
             <label
               htmlFor="title"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-gray-400 mb-2"
             >
-              タイトル
+              Title
             </label>
             <input
               type="text"
@@ -70,7 +83,7 @@ export default function ProposingPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="block w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500 text-black"
-              placeholder="提案のタイトルを入力"
+              placeholder="e.g.: Expanding subsidies for small and medium-sized enterprises"
             //   required
             />
           </div>
@@ -79,36 +92,86 @@ export default function ProposingPage() {
           <div>
             <label
               htmlFor="description"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-gray-400 mb-2"
             >
-              説明
+              Description
             </label>
             <textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="block w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500 text-black"
-              placeholder="提案の詳細を記述してください"
+              placeholder="e.g.: This proposal aims to increase the GDP growth rate by 2% by introducing a tax incentive for SMEs."
               rows={6}
             //   required
             ></textarea>
           </div>
 
-          {/* タグ入力 */}
+          {/*  閾値入力 */}
           <div>
             <label
-              htmlFor="tags"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              htmlFor="threshold"
+              className="block text-sm font-medium text-gray-400 mb-2"
             >
-              タグ（カンマ区切りで入力）
+              Threshold
             </label>
             <input
               type="text"
-              id="tags"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
+              id="threshold"
+              value={threshold}
+              onChange={(e) => setThreshold(e.target.value)}
               className="block w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500 text-black"
-              placeholder="例: 環境, 教育, 科学"
+              placeholder="e.g.: Achieve a GDP growth rate of at least 2%"
+            />
+          </div>
+
+          {/*  担保トークンアドレス入力 */}
+          <div>
+            <label
+              htmlFor="collateral"
+              className="block text-sm font-medium text-gray-400 mb-2"
+            >
+              Collareral Address
+            </label>
+            <input
+              type="text"
+              id="collateral"
+              value={collateral}
+              onChange={(e) => setCollateral(e.target.value as `0x${string}`)}
+              className="block w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+              placeholder="e.g.: 0x5fbdb2315678afecb367f032d93f642f64180aa3"
+            />
+          </div>
+
+          {/*  初期流動性の提供  */}
+          <div>
+            <label
+              htmlFor="initLiquidity"
+              className="block text-sm font-medium text-gray-400 mb-2"
+            >
+              Initial Liquidity
+            </label>
+            <input
+              type="number"
+              id="initLiqyuidity"
+              value={initLquidity || ""}
+              onChange={(e) => setInitLquidity(Number(e.target.value))}
+              className="block w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+              placeholder="e.g.: 50000"
+            />
+          </div>
+
+            {/* Duration Adjuster */}
+          <div>
+            <label
+              htmlFor="duration"
+              className="block text-sm font-medium text-gray-400 mb-2"
+            >
+              Duration
+            </label>
+            <DurationAdjuster
+              duration={duration}
+              onChange={handleDurationChange}
             />
           </div>
 

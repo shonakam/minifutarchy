@@ -11,10 +11,11 @@ interface Proposal {
 	proposalAddress: `0x${string}`;
 	title: string;
 	description: string;
+  threshold: string;
 	start: string;
 	duration: string;
 	collateralAddress: `0x${string}`;
-  }
+}
   
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }>}) {
@@ -23,8 +24,8 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');
     const contract = new ethers.Contract(address, ProposalABI.abi, provider);
 
-    const [submitter, title, description, start, duration, collateralAddress]: [
-      string, string, string, bigint, bigint, string
+    const [submitter, title, description, threshold, start, duration, collateralAddress]: [
+      string, string, string, string, bigint, bigint, string
     ] = await contract.getProposalData();
 
     const data: Proposal = {
@@ -33,6 +34,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
       submitter: submitter as `0x${string}`,
       title,
       description,
+      threshold,
       start: start.toString(),
       duration: duration.toString(),
       collateralAddress: collateralAddress as `0x${string}`,

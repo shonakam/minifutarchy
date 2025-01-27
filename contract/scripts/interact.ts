@@ -56,13 +56,14 @@ async function main() {
       of contract deployment using Hardhat and viem. It serves as a foundational
       step towards more complex contract interactions and integrations.`
 
+    const threshold = "Threshold display location."
     const duration = BigInt(7 * 24 * 60 * 60);
     const collateral = "0x5fbdb2315678afecb367f032d93f642f64180aa3"
 
     txHash = await accounts[0].writeContract({
       address: factory, abi: abiFactory.abi,
       functionName: "createProposal", args: [
-        title, description, duration, collateral
+        title, description, threshold, duration, collateral
       ]
     })
     console.log("txHash: ", txHash);

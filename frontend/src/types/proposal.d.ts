@@ -4,6 +4,7 @@ interface Proposal {
 	proposalAddress: `0x${string}`;
 	title: string;
 	description: string;
+	threshold: string;
 	start: string;
 	duration: string;
 	collateralAddress: `0x${string}`;

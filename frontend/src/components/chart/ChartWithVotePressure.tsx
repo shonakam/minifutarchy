@@ -157,12 +157,12 @@ const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ proposal,
   };
 
   return (
-    <div className="bg-gray-900 flex min-h-screen items-center justify-center text-white rounded">
+    <div className="bg-gray-900 flex min-h-screen items-center justify-center text-white w-full">
       <div className="w-full max-w-4xl shadow-lg rounded-lg p-6">
         {/* 投票数の棒グラフ */}
 
         {/* ProposalCard */}
-        <div className="mt-6 mb-2">
+        <div className="mt-10 mb-2">
           <ProposalCard
             title={proposal?.title || "(NULL)"}
             proposer={proposal?.submitter || "(NULL)"}
@@ -177,6 +177,7 @@ const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ proposal,
                 ? "(NULL)"
                 : new Date(endTime).toLocaleString()
             }
+            threshold={proposal?.threshold || "(NULL)"}
             description={proposal?.description || "(NULL)"}
           />
         </div>

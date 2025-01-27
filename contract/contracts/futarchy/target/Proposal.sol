@@ -10,6 +10,7 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
     address public submitter;
     string public title;
     string public description;
+    string public threshold;
     uint256 public start;
     uint256 public duration;
 
@@ -73,6 +74,7 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
         address _submitter,
         string memory _title,
         string memory _description,
+        string memory _threshold,
         uint256 _start,
         uint256 _duration,
         address _exchange,
@@ -83,6 +85,7 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
         submitter = _submitter;
         title = _title;
         description = _description;
+        threshold = _threshold;
         start = _start;
         duration = _duration;
         exchange = _exchange;
@@ -139,7 +142,7 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
         ids[0] = LPT; ids[1] = YES; ids[2] = NO;
         uint256[] memory amounts = new uint256[](3);
         amounts[0] = lpAmount; amounts[1] = amount; amounts[2] = amount;
-        _mintBatch(address(this), ids, amounts, "");
+        _mintBatch(msg.sender, ids, amounts, "");
 
         hasInitLiquidity = true;
         emit InitialLiquidityAdded(msg.sender, amount, amount);
@@ -207,12 +210,13 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
     }
 
     function getProposalData() external view returns (
-        address, string memory, string memory, uint256, uint256, address
+        address, string memory, string memory, string memory, uint256, uint256, address
     ) {
         return (
             submitter,
             title,
             description,
+            threshold,
             start,
             duration,
             address(collateralToken)

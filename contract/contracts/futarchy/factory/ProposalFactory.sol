@@ -15,6 +15,7 @@ contract ProposalFactory {
         address proposalAddress;
         string title;
         string description;
+        string threshold;
         uint256 start;
         uint256 duration;
         address collateralToken;
@@ -36,30 +37,36 @@ contract ProposalFactory {
     function getProposal(uint256 id) external view returns (address) { return proposals[id]; }
 
     function createProposal(
-        string memory title, string memory description, uint256 duration, address collateralToken
+        string memory _title,
+        string memory _description,
+        string memory _threshold,
+        uint256 _duration,
+        address _collateralToken
     ) external returns (address) {
         address clone = Clones.clone(implementation);
         Proposal(clone).initialize(
             msg.sender,
-            title,
-            description,
+            _title,
+            _description,
+            _threshold,
             block.timestamp,
-            duration,
+            _duration,
             exchange,
-            collateralToken
+            _collateralToken
         );
 
         proposals[nextProposalId] = clone;
         proposalDetails[clone] = ProposalData({
             submitter: msg.sender,
             proposalAddress: clone,
-            title: title,
-            description: description,
+            title: _title,
+            description: _description,
+            threshold: _threshold,
             start: block.timestamp,
-            duration: duration,
-            collateralToken: collateralToken
+            duration: _duration,
+            collateralToken: _collateralToken
         });
-        emit ProposalCreated(nextProposalId++, clone, collateralToken);
+        emit ProposalCreated(nextProposalId++, clone, _collateralToken);
         return clone;
     }
 
