@@ -17,6 +17,7 @@ import { ethers } from 'ethers';
 import ProposalABI from '@/_artifacts/contracts/futarchy/target/Proposal.sol/Proposal.json';
 import ExchangeABI from '@/_artifacts/contracts/futarchy/Exchange.sol/Exchange.json'
 import CollateralABI from  '@/_artifacts/contracts/futarchy/CollateralMock.sol/CollateralMock.json'
+import { sendTx } from '@/utils/sendTx.util';
 
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
@@ -116,35 +117,29 @@ const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ proposal,
     try {
       const provider = new ethers.BrowserProvider(window.ethereum as ethers.Eip1193Provider);
       const signer = await provider.getSigner();
-      const collateral = new ethers.Contract(
-        "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-        CollateralABI.abi, signer
-      );
-      const exchange = new ethers.Contract(
-        "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
-        ExchangeABI.abi, signer
-      );
 
-      const nonce = await provider.getTransactionCount(signer.address);
-      let tx;
+      const collateralAddress = "0x5fbdb2315678afecb367f032d93f642f64180aa3";
+      const exchangeAddress = "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0";
+
+      let nonce = await provider.getTransactionCount(signer.address);
       const pos = position == 'yes' ? true : false;
+      const amount = ethers.toBigInt(sliderValue);
+
+      let receipt;
+      const args = [proposal?.proposalAddress, amount, pos];
       if (type == 'vote') {
-        tx = await collateral.approve(
-          "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0", BigInt(sliderValue),
-          {gasLimit: ethers.toBigInt(500000), nonce: nonce}
-        );
-        await tx.wait();
-        tx = await exchange.vote(
-          proposal?.proposalAddress, BigInt(sliderValue), pos,
-          {gasLimit: ethers.toBigInt(500000), nonce: nonce+1}
+        await sendTx(
+          collateralAddress, CollateralABI.abi, 'approve',
+          [exchangeAddress, amount], nonce
+        )
+        receipt = await sendTx(
+          exchangeAddress, ExchangeABI.abi, 'vote', args, nonce + 1
         );
       } else if(type == 'redeem') {
-        tx = await exchange.redeem(
-          proposal?.proposalAddress, BigInt(sliderValue), pos,
-          {gasLimit: ethers.toBigInt(500000), nonce: nonce}
+        receipt = await sendTx(
+          exchangeAddress, ExchangeABI.abi, 'redeem', args, nonce
         );
       }
-      const receipt = await tx.wait();
       console.log("Transaction confirmed:", receipt);
       alert(`${type} submitted:\nChoice: ${position}\nAmount: ${sliderValue}`);
     } catch (e) {
