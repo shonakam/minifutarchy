@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { sendTx } from '@/utils/sendTx.util';
 import DurationAdjuster from '@/components/DurationAdjuster';
-import Factory from '@/../../contract/artifacts/contracts/futarchy/factory/ProposalFactory.sol/ProposalFactory.json'
-import Collateral from '@/../../contract/artifacts/contracts/futarchy/CollateralMock.sol/CollateralMock.json'
-import Proposal from '@/../../contract/artifacts/contracts/futarchy/target/Proposal.sol/Proposal.json'
+import Factory from '@/_artifacts/contracts/futarchy/factory/ProposalFactory.sol/ProposalFactory.json';
+import Proposal from '@/_artifacts/contracts/futarchy/target/Proposal.sol/Proposal.json';
+import Collateral from  '@/_artifacts/contracts/futarchy/CollateralMock.sol/CollateralMock.json'
 import { getNonce } from '@/utils/getNonce.util';
 
 export default function ProposingPage() {
@@ -63,7 +63,7 @@ export default function ProposingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4 mt-8">
       <div className="max-w-2xl w-full bg-gray-800 shadow-lg rounded-lg p-8">
         <h1 className="text-3xl font-bold text-white mb-6 text-center">
           Submit a Market
@@ -102,7 +102,7 @@ export default function ProposingPage() {
               onChange={(e) => setDescription(e.target.value)}
               className="block w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500 text-black"
               placeholder="e.g.: This proposal aims to increase the GDP growth rate by 2% by introducing a tax incentive for SMEs."
-              rows={6}
+              rows={4}
             //   required
             ></textarea>
           </div>

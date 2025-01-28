@@ -1,23 +1,35 @@
-# 定義
 CONTRACT_DIR = ./contract
 FRONTEND_DIR = ./frontend
-SUPABASE_DIR = ./supabase
 
 HARDHAT = bun hardhat
 CONTRACT_NETWORK ?= localhost
 BUN = bun
-SUPABASE = supabase
 
-.PHONY: help dev contract-compile contract-deploy contract-test frontend-dev frontend-build supabase-start supabase-migrate supabase-seed clean
+DOCKER_HARDHAT_CONTAINER = ${PROJECT_NAME:-default}-hardhat-node
+
+.PHONY: help dev contract-compile contract-deploy contract-test frontend-dev frontend-build clean
 
 help: ## 利用可能なコマンド一覧を表示
 	@echo "Usage: make [COMMAND]"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
+docker:
+	@rm -rf .docker 
+	@mkdir .docker && touch .docker/hardhat.log .docker/frontend.log
+	@sync
+	@docker compose build --no-cache
+	@docker compose up
+
+docker-contract-deploy:
+	@docker compose exec -it hardhat sh -c "cd /app && npx hardhat run scripts/deploy.ts --network localhost"
+
+docker-contract-interact:
+	@docker compose exec -it hardhat sh -c "cd /app && npx hardhat run scripts/interact.ts --network localhost"
+
 ### 全体操作 ###
 dev: ## 全体の開発環境を起動 (Hardhat Node, Next.js, Supabase)
-	make supabase-start &
 	make contract-node &
+	make contract-deploy &
 	make frontend-dev
 
 clean: ## 全体のキャッシュとビルド成果物を削除
@@ -27,7 +39,7 @@ clean: ## 全体のキャッシュとビルド成果物を削除
 
 ### contract 操作 ###
 contract-compile: ## スマートコントラクトをコンパイル
-	cd $(CONTRACT_DIR) && $(HARDHAT) compile
+	cd $(CONTRACT_DIR) && $(HARDHAT) clean && $(HARDHAT) compile
 
 contract-deploy: ## スマートコントラクトをデプロイ
 	cd $(CONTRACT_DIR) && $(HARDHAT) run scripts/deploy.ts --network $(CONTRACT_NETWORK)
@@ -56,13 +68,3 @@ frontend-lint: ## フロントエンドのコードをリント
 
 frontend-clean: ## フロントエンドのキャッシュ削除
 	rm -rf $(FRONTEND_DIR)/.next $(FRONTEND_DIR)/node_modules
-
-### supabase 操作 ###
-supabase-start: ## Supabase ローカルデータベースを起動
-	cd $(SUPABASE_DIR) && $(SUPABASE) start
-
-supabase-migrate: ## Supabase マイグレーションを実行
-	cd $(SUPABASE_DIR) && $(SUPABASE) db push
-
-supabase-seed: ## Supabase シードデータを適用
-	cd $(SUPABASE_DIR) && $(SUPABASE) db seed

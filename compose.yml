@@ -1,0 +1,47 @@
+x-logging: &logging
+  logging:
+    driver: "json-file"
+    options:
+      max-file: "10"
+      max-size: "100m"
+
+services:
+  hardhat:
+    image: node:18
+    container_name: ${PROJECT_NAME:-default}-hardhat-node
+    restart: unless-stopped
+    env_file: .env.local
+    working_dir: /app
+    ports:
+      - "8545:8545"
+    volumes:
+      - ./contract:/app
+      - ./.docker/hardhat.log:/var/log/hardhat.log
+    command: >
+      sh -c "npm install && npx hardhat node > /var/log/hardhat.log 2>&1"
+    networks:
+      - minifutachy-network
+    <<: *logging
+  
+  frontend:
+    image: oven/bun:latest
+    container_name: ${PROJECT_NAME:-default}-frontend
+    restart: unless-stopped
+    env_file: .env.local
+    environment:
+      NEXT_PUBLIC_HARDHAT_ENDPOINT: "http://hardhat:8545"
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - ./.docker/frontend.log:/var/log/frontend.log
+    command: >
+      sh -c "bun i && bun dev > /var/log/frontend.log 2>&1"
+    networks:
+      - minifutachy-network
+    <<: *logging
+
+networks:
+  minifutachy-network:
+    driver: bridge

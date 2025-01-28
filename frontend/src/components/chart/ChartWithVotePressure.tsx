@@ -14,12 +14,9 @@ import Slider from './Slider';
 import ProposalCard from './ProposalCard';
 
 import { ethers } from 'ethers';
-import proposalFactory from "@/constants/abis/factory/ProposalFactory.sol/ProposalFactory.json"
-import ProposalABI from '../../../../contract/artifacts/contracts/futarchy/target/Proposal.sol/Proposal.json';
-import ExchangeABI from 
-  '../../../../contract/artifacts/contracts/futarchy/Exchange.sol/Exchange.json';
-import CollateralABI from 
-  '../../../../contract/artifacts/contracts/futarchy/CollateralMock.sol/CollateralMock.json';
+import ProposalABI from '@/_artifacts/contracts/futarchy/target/Proposal.sol/Proposal.json';
+import ExchangeABI from '@/_artifacts/contracts/futarchy/Exchange.sol/Exchange.json'
+import CollateralABI from  '@/_artifacts/contracts/futarchy/CollateralMock.sol/CollateralMock.json'
 
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);

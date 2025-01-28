@@ -1,6 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import ProposalABI from 
-  '../../../../../../../../contract/artifacts/contracts/futarchy/target/Proposal.sol/Proposal.json';
+import ProposalABI from '@/_artifacts/contracts/futarchy/target/Proposal.sol/Proposal.json';
 import { ethers } from 'ethers';
 
 type Response = [string, string, string, bigint, bigint, string];
@@ -20,8 +19,10 @@ interface Proposal {
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }>}) {
   try {
+    const hardhatEndpoint = process.env.NEXT_PUBLIC_HARDHAT_ENDPOINT || "";
+    const provider = new ethers.JsonRpcProvider(hardhatEndpoint);
+    
     const address = (await params).id
-    const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');
     const contract = new ethers.Contract(address, ProposalABI.abi, provider);
 
     const [submitter, title, description, threshold, start, duration, collateralAddress]: [

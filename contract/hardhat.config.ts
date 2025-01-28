@@ -2,11 +2,19 @@ import { HardhatUserConfig } from "hardhat/config";
 import "hardhat-gas-reporter";
 import "@nomicfoundation/hardhat-toolbox-viem";
 import * as dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
 dotenv.config();
 
-const mnemonic = process.env.MNEMONIC || ""; // 環境変数から mnemonic を取得
-const privateKey = process.env.ACCOUNT_SEACRET || "1111111111111111111111111111111111111111111111111111111111111111"; // 個別のプライベートキーを取得
+const tasksDir = path.join(__dirname, "tasks");
+fs.readdirSync(tasksDir)
+  .filter((file) => file.endsWith(".ts"))
+  .forEach((taskFile) => {
+    require(path.join(tasksDir, taskFile));
+});
 
+const mnemonic = process.env.MNEMONIC || "";
+const privateKey = process.env.ACCOUNT_SEACRET || "1111111111111111111111111111111111111111111111111111111111111111"; // 個別のプライベートキーを取得
 
 const config: HardhatUserConfig = {
   solidity: "0.8.28",

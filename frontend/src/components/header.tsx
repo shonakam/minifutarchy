@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import WalletConnectButton from './wallet/WalletConnectButton';
+import WalletConnectButton from './WalletConnectButton';
 
 const Header: React.FC = () => {
   return (
@@ -29,9 +29,9 @@ const Header: React.FC = () => {
             <Link href="/market" className="text-sm font-medium hover:text-gray-300">
               market
             </Link>
-            <Link href="/sample" className="text-sm font-medium hover:text-gray-300">
+            {/* <Link href="/sample" className="text-sm font-medium hover:text-gray-300">
               sample
-            </Link>
+            </Link> */}
           </nav>
           {/* Wallet Connect Button */}
           <div>

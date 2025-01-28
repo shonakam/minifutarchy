@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
-import ProposalFactoryABI from 
-  '../../../../../../../contract/artifacts/contracts/futarchy/factory/ProposalFactory.sol/ProposalFactory.json';
+import ProposalFactoryABI from '@/_artifacts/contracts/futarchy/factory/ProposalFactory.sol/ProposalFactory.json';
 import { ethers } from 'ethers';
 
 type Response = [string, string, string, string, string, bigint, bigint, string];
 
 export async function GET() {
   try {
-    const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');
+    const hardhatEndpoint = process.env.NEXT_PUBLIC_HARDHAT_ENDPOINT || "";
+
+    const provider = new ethers.JsonRpcProvider(hardhatEndpoint);
     const contract = new ethers.Contract(
       "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9",
       ProposalFactoryABI.abi,
