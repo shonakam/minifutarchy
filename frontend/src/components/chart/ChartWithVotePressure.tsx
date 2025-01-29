@@ -111,42 +111,107 @@ const ChartWithVotePressure: React.FC<ChartWithVotePressureProps> = ({ proposal,
     setSliderValue(0);
   };
 
+  // const handleOrder = async (type: 'vote' | 'redeem') => {
+  //   console.log('Vote request sent:', { type, position, amount: ethers.toBigInt(sliderValue), });
+  //   console.log()
+  //   try {
+  //     const provider = new ethers.BrowserProvider(window.ethereum as ethers.Eip1193Provider);
+  //     const signer = await provider.getSigner();
+
+  //     const collateralAddress = "0x5fbdb2315678afecb367f032d93f642f64180aa3";
+  //     const exchangeAddress = "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0";
+
+  //     const nonce = await provider.getTransactionCount(signer.address);
+  //     const pos = position === 'yes';
+  //     const amount = BigInt(sliderValue);
+
+  //     let receipt;
+  //     const args = [proposal?.proposalAddress, amount, pos];
+  //     console.log("args:", args)
+  //     if (type == 'vote') {
+  //       receipt = await sendTx(
+  //         collateralAddress, CollateralABI.abi, 'approve',
+  //         [exchangeAddress, amount], nonce, BigInt(500000)
+  //       )
+
+  //       receipt = await sendTx(
+  //         exchangeAddress, ExchangeABI.abi, 'vote', 
+  //         args, nonce+1, BigInt(800000)
+  //       );
+  //     } else if(type == 'redeem') {
+  //       receipt = await sendTx(
+  //         exchangeAddress, ExchangeABI.abi, 'redeem', args, nonce, BigInt(800000)
+  //       );
+  //     }
+  //     console.log("Transaction confirmed:", receipt);
+  //     alert(`${type} submitted:\nChoice: ${position}\nAmount: ${sliderValue}`);
+  //   } catch (e) {
+  //     console.log("Err:", e);
+  //     alert("ERROR: This transaction reverted.")
+  //   }
+  // };
+
   const handleOrder = async (type: 'vote' | 'redeem') => {
-    console.log('Vote request sent:', { type, position, amount: ethers.toBigInt(sliderValue), });
-    console.log()
+    console.log('Vote request sent:', { type, position, amount: ethers.toBigInt(sliderValue) });
+  
     try {
       const provider = new ethers.BrowserProvider(window.ethereum as ethers.Eip1193Provider);
       const signer = await provider.getSigner();
-
-      const collateralAddress = "0x5fbdb2315678afecb367f032d93f642f64180aa3";
-      const exchangeAddress = "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0";
-
-      let nonce = await provider.getTransactionCount(signer.address);
-      const pos = position == 'yes' ? true : false;
+      const collateral = new ethers.Contract(
+        "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+        CollateralABI.abi, signer
+      );
+      const exchange = new ethers.Contract(
+        "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+        ExchangeABI.abi, signer
+      );
+  
+      const nonce = await provider.getTransactionCount(signer.address);
+      const pos = position === 'yes';
       const amount = ethers.toBigInt(sliderValue);
-
-      let receipt;
-      const args = [proposal?.proposalAddress, amount, pos];
-      if (type == 'vote') {
-        await sendTx(
-          collateralAddress, CollateralABI.abi, 'approve',
-          [exchangeAddress, amount], nonce
-        )
-        receipt = await sendTx(
-          exchangeAddress, ExchangeABI.abi, 'vote', args, nonce + 1
-        );
-      } else if(type == 'redeem') {
-        receipt = await sendTx(
-          exchangeAddress, ExchangeABI.abi, 'redeem', args, nonce
-        );
+  
+      if (!proposal?.proposalAddress) {
+        throw new Error("Proposal address is undefined.");
       }
+  
+      const args = [proposal.proposalAddress, amount, pos];
+  
+      let receipt;
+  
+      if (type === 'vote') {
+        console.log("Approving collateral...");
+        const approveTx = await collateral.approve(
+          exchange.target, amount,
+          { gasLimit: ethers.toBigInt(500000), nonce }
+        );
+        await approveTx.wait();
+        const balance = await collateral.balanceOf(signer.address);
+        console.log("User Collateral Balance:", balance.toString());
+  
+        console.log("Sending vote transaction...");
+        const voteTx = await exchange.vote(
+          proposal.proposalAddress, amount, pos,
+          { gasLimit: ethers.toBigInt(800000), nonce: nonce + 1 }
+        );
+        receipt = await voteTx.wait();
+      } else if (type === 'redeem') {
+        console.log("Sending redeem transaction...");
+        const redeemTx = await exchange.redeem(
+          proposal.proposalAddress, amount, pos,
+          { gasLimit: await exchange.redeem.estimateGas(proposal.proposalAddress, amount, pos), nonce }
+        );
+        receipt = await redeemTx.wait();
+      }
+  
       console.log("Transaction confirmed:", receipt);
       alert(`${type} submitted:\nChoice: ${position}\nAmount: ${sliderValue}`);
-    } catch (e) {
-      console.log("Err:", e);
-      alert("ERROR: This transaction reverted.")
+  
+    } catch (e: any) {
+      console.error("Transaction Error:", e);
+      alert(`ERROR: ${e.reason || e.message || "This transaction reverted."}`);
     }
   };
+  
 
   return (
     <div className="bg-gray-900 flex min-h-screen items-center justify-center text-white w-full">

@@ -98,6 +98,7 @@ contract Exchange {
     function vote(address proposal, uint256 collateralAmount, bool isYes) external {
         require(collateralAmount > 0, "Invalid input amount");
         Proposal proposalInstance = Proposal(proposal);
+        require(proposalInstance.start() + proposalInstance.duration() > block.timestamp, "Closed");
 
         IERC20 collateral = IERC20(proposalInstance.collateralToken());
         require(
@@ -147,7 +148,6 @@ contract Exchange {
     }
     function redeem(address proposal, uint256 amount, bool isYes) external {
         Proposal proposalInstance = Proposal(proposal);
-        require(!proposalInstance.isClose(), "Market already resolved");
 
         IERC20 collateral = IERC20(proposalInstance.collateralToken());
         (uint256 yesReserve, uint256 noReserve) = proposalInstance.getMarketReserves();
@@ -163,7 +163,8 @@ contract Exchange {
         uint256 newYesReserve;
         uint256 newNoReserve;
 
-        if (!proposalInstance.isClose()) {
+        if (!proposalInstance.isClose() || 
+            proposalInstance.start() + proposalInstance.duration() > block.timestamp) {
             (newYesReserve, newNoReserve, collateralAmount) = 
                 _beforeCloseLogic(yesReserve, noReserve, amount, isYes);
         } else {
@@ -181,7 +182,7 @@ contract Exchange {
             address(proposal), msg.sender, collateralAmount), "Collateral transfer failed"
         );
 
-        if (!proposalInstance.isClose()) {
+        if (!proposalInstance.isClose() || proposalInstance.start() + proposalInstance.duration() > block.timestamp) {
             proposalInstance.updateMarketReserves(
                 isYes ? newNoReserve - noReserve : newYesReserve - yesReserve,
                 isYes ? yesReserve - newYesReserve : noReserve - newNoReserve,

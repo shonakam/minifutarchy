@@ -26,6 +26,17 @@ docker-contract-deploy:
 docker-contract-interact:
 	@docker compose exec -it hardhat sh -c "cd /app && npx hardhat run scripts/interact.ts --network localhost"
 
+docker-contract-simulation:
+	@docker compose exec -it -e PROPOSAL="$(ARGS)" hardhat sh -c "cd /app && npx hardhat run scripts/simulation.ts --network localhost"
+
+docker-contract-increaseTime:
+	@docker compose exec hardhat curl -X POST --data '{"jsonrpc":"2.0","method":"evm_increaseTime","params":[86400],"id":1}' \
+		-H "Content-Type: application/json" \
+		http://127.0.0.1:8545
+	@docker compose exec hardhat curl -X POST --data '{"jsonrpc":"2.0","method":"evm_mine","params":[],"id":2}' \
+		-H "Content-Type: application/json" \
+		http://127.0.0.1:8545
+
 ### 全体操作 ###
 dev: ## 全体の開発環境を起動 (Hardhat Node, Next.js, Supabase)
 	make contract-node &
@@ -35,10 +46,10 @@ dev: ## 全体の開発環境を起動 (Hardhat Node, Next.js, Supabase)
 clean: ## 全体のキャッシュとビルド成果物を削除
 	rm -rf $(CONTRACT_DIR)/artifacts $(CONTRACT_DIR)/cache
 	rm -rf $(FRONTEND_DIR)/.next $(FRONTEND_DIR)/node_modules
-	rm -rf $(SUPABASE_DIR)/.supabase
 
 ### contract 操作 ###
 contract-compile: ## スマートコントラクトをコンパイル
+	rm -rf ./frontend/src/_artifacts
 	cd $(CONTRACT_DIR) && $(HARDHAT) clean && $(HARDHAT) compile
 
 contract-deploy: ## スマートコントラクトをデプロイ

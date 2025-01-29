@@ -137,13 +137,10 @@ contract Proposal is ERC1155Supply, IERC1155Receiver {
 
         uint256 lpAmount = sqrt(amount * amount);
         require(lpAmount > 0, "Invalid LP token amount");
-  
-        uint256[] memory ids = new uint256[](3);
-        ids[0] = LPT; ids[1] = YES; ids[2] = NO;
-        uint256[] memory amounts = new uint256[](3);
-        amounts[0] = lpAmount; amounts[1] = amount; amounts[2] = amount;
-        _mintBatch(msg.sender, ids, amounts, "");
 
+        _mint(msg.sender, LPT, lpAmount, "");
+        _mint(address(this), YES, amount, "");
+        _mint(address(this), NO, amount, "");
         hasInitLiquidity = true;
         emit InitialLiquidityAdded(msg.sender, amount, amount);
     }
